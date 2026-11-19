@@ -87,10 +87,10 @@
 - [x] Group C verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
 
 ### Group D: Low Priority & Branding
-- [ ] L1: Android strings.xml app_name and title_activity_main set to Tidebound
-- [ ] L2: Regenerate PWA PNG icons from SVG using palette colours (no neon ship), update generate-icons.js, update Capacitor icons/splash
-- [ ] L3: Replace placeholder README.md with real Tidebound README (no emojis)
-- [ ] Group D verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
+- [x] L1: Android strings.xml app_name and title_activity_main set to Tidebound
+- [x] L2: Regenerate PWA PNG icons from SVG using palette colours (no neon ship), update generate-icons.js, update Capacitor icons/splash
+- [x] L3: Replace placeholder README.md with real Tidebound README (no emojis)
+- [x] Group D verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
 
 ### Group E: Verification & Final Report
 - [ ] Run full build and tests

@@ -38,7 +38,66 @@ function makeChunk(type, data) {
   return Buffer.concat([lenBuf, typeBuf, data, crcBuf]);
 }
 
-function generatePng(width, height, isMaskable = false) {
+// Tidebound official color tokens (RGB values matching src/data/palette.ts)
+const PALETTE_RGB = {
+  AbyssalNavy: [13, 59, 76],
+  WeatheredSlate: [110, 116, 120],
+  SunBleachedSand: [223, 199, 154],
+  EmberOrange: [255, 122, 41],
+  TropicalTeal: [30, 142, 142],
+  SeafoamWhite: [230, 247, 245],
+};
+
+function renderPixel(u, v) {
+  // Normalize u, v to [0, 1]
+  // 1. Sun / Ember Spark
+  const sunDx = u - 0.5;
+  const sunDy = v - 0.28;
+  const sunDist = Math.hypot(sunDx, sunDy);
+  if (sunDist <= 0.055) {
+    return PALETTE_RGB.EmberOrange;
+  }
+
+  // 2. Wave crest and water body
+  const waveCrestV = 0.71 + Math.sin(u * Math.PI * 4.0 - 0.5) * 0.038;
+  if (v >= waveCrestV) {
+    if (v <= waveCrestV + 0.024) {
+      return PALETTE_RGB.SeafoamWhite;
+    }
+    return PALETTE_RGB.TropicalTeal;
+  }
+
+  // 3. Mountain / Island Peak
+  if (v >= 0.35 && v < waveCrestV) {
+    // Outer mountain span
+    const prog = (v - 0.35) / (0.75 - 0.35);
+    const halfWidth = prog * 0.30;
+    const dx = Math.abs(u - 0.5);
+
+    if (dx <= halfWidth) {
+      // Inner sand ridge
+      if (v >= 0.44) {
+        const innerProg = (v - 0.44) / (0.75 - 0.44);
+        const innerHalfWidth = innerProg * 0.13;
+        if (dx <= innerHalfWidth) {
+          return PALETTE_RGB.SunBleachedSand;
+        }
+      }
+      return PALETTE_RGB.WeatheredSlate;
+    }
+  }
+
+  return null;
+}
+
+function generatePng(width, height, options = {}) {
+  const {
+    isMaskable = false,
+    isRound = false,
+    isForeground = false,
+    isSplash = false,
+  } = options;
+
   const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
   const ihdrData = Buffer.alloc(13);
@@ -52,13 +111,23 @@ function generatePng(width, height, isMaskable = false) {
 
   const ihdrChunk = makeChunk('IHDR', ihdrData);
 
-  // Scanline data (filter byte 0 + RGBA per pixel)
   const rowStride = 1 + width * 4;
   const rawData = Buffer.alloc(height * rowStride);
 
   const cx = width / 2;
   const cy = height / 2;
-  const maxR = (width / 2) * (isMaskable ? 0.72 : 0.85);
+  const radius = Math.min(width, height) / 2;
+
+  // Scale emblem based on context
+  let emblemScale = 0.92;
+  if (isMaskable) emblemScale = 0.72;
+  if (isForeground) emblemScale = 0.62;
+  if (isSplash) emblemScale = Math.min(width, height) * 0.42 / width;
+
+  const emblemSizeX = width * emblemScale;
+  const emblemSizeY = (isSplash ? width * emblemScale : height * emblemScale);
+  const emblemStartX = cx - emblemSizeX / 2;
+  const emblemStartY = cy - emblemSizeY / 2;
 
   for (let y = 0; y < height; y++) {
     const rowOffset = y * rowStride;
@@ -67,61 +136,42 @@ function generatePng(width, height, isMaskable = false) {
     for (let x = 0; x < width; x++) {
       const pxOffset = rowOffset + 1 + x * 4;
 
-      const dx = x - cx;
-      const dy = y - cy;
-      const dist = Math.hypot(dx, dy);
-
-      // Default background: deep space dark navy #0a0e1c
-      let r = 10;
-      let g = 14;
-      let b = 28;
-      let a = 255;
-
-      // Outer glowing ring
-      if (dist >= maxR - 8 && dist <= maxR) {
-        const ringGlow = 1 - Math.abs(dist - (maxR - 4)) / 4;
-        r = Math.min(255, r + 0 * ringGlow);
-        g = Math.min(255, g + 240 * ringGlow);
-        b = Math.min(255, b + 255 * ringGlow);
+      if (isRound) {
+        const d = Math.hypot(x - cx, y - cy);
+        if (d > radius) {
+          rawData[pxOffset] = 0;
+          rawData[pxOffset + 1] = 0;
+          rawData[pxOffset + 2] = 0;
+          rawData[pxOffset + 3] = 0;
+          continue;
+        }
       }
 
-      // Inside badge background
-      if (dist < maxR - 8) {
-        r = 15;
-        g = 22;
-        b = 42;
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let a = 0;
+
+      if (!isForeground) {
+        // Deep background: AbyssalNavy
+        [r, g, b] = PALETTE_RGB.AbyssalNavy;
+        a = 255;
       }
 
-      // Cyber Ship (Triangular Neon Vessel pointing UP)
-      // Tip at (cx, cy - maxR * 0.55), base left (cx - maxR * 0.45, cy + maxR * 0.45), base right (cx + maxR * 0.45, cy + maxR * 0.45)
-      const shipTopY = cy - maxR * 0.55;
-      const shipBottomY = cy + maxR * 0.45;
-      const shipWidthHalf = maxR * 0.45;
+      // Check if inside emblem bounds
+      if (
+        x >= emblemStartX &&
+        x < emblemStartX + emblemSizeX &&
+        y >= emblemStartY &&
+        y < emblemStartY + emblemSizeY
+      ) {
+        const u = (x - emblemStartX) / emblemSizeX;
+        const v = (y - emblemStartY) / emblemSizeY;
 
-      if (y >= shipTopY && y <= shipBottomY) {
-        const prog = (y - shipTopY) / (shipBottomY - shipTopY);
-        const halfSpan = prog * shipWidthHalf;
-
-        if (Math.abs(dx) <= halfSpan) {
-          // Inside ship
-          if (Math.abs(dx) <= halfSpan * 0.25) {
-            // Cockpit neon magenta #ff0077
-            r = 255;
-            g = 0;
-            b = 119;
-          } else {
-            // Cyber wings neon cyan #00f0ff
-            r = 0;
-            g = 240;
-            b = 255;
-          }
-
-          // Edge highlight
-          if (Math.abs(dx) >= halfSpan - 3) {
-            r = 255;
-            g = 255;
-            b = 255;
-          }
+        const color = renderPixel(u, v);
+        if (color) {
+          [r, g, b] = color;
+          a = 255;
         }
       }
 
@@ -139,13 +189,59 @@ function generatePng(width, height, isMaskable = false) {
   return Buffer.concat([sig, ihdrChunk, idatChunk, iendChunk]);
 }
 
+// 1. Generate PWA and Web icons in public/
 const publicDir = path.resolve('public');
 fs.mkdirSync(publicDir, { recursive: true });
 
-// Generate icons
-fs.writeFileSync(path.join(publicDir, 'pwa-192x192.png'), generatePng(192, 192, false));
-fs.writeFileSync(path.join(publicDir, 'pwa-512x512.png'), generatePng(512, 512, false));
-fs.writeFileSync(path.join(publicDir, 'maskable-icon-512x512.png'), generatePng(512, 512, true));
-fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), generatePng(180, 180, false));
+console.log('Generating PWA icons...');
+fs.writeFileSync(path.join(publicDir, 'pwa-192x192.png'), generatePng(192, 192, { isMaskable: false }));
+fs.writeFileSync(path.join(publicDir, 'pwa-512x512.png'), generatePng(512, 512, { isMaskable: false }));
+fs.writeFileSync(path.join(publicDir, 'maskable-icon-512x512.png'), generatePng(512, 512, { isMaskable: true }));
+fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), generatePng(180, 180, { isMaskable: false }));
 
-console.log('Successfully generated PWA icons in public/');
+// 2. Generate Capacitor Android launcher icons & splash screens
+const resDir = path.resolve('android/app/src/main/res');
+
+if (fs.existsSync(resDir)) {
+  console.log('Generating Android icons and splash assets...');
+
+  const mipmapDensities = [
+    { dir: 'mipmap-mdpi', iconSize: 48, fgSize: 108 },
+    { dir: 'mipmap-hdpi', iconSize: 72, fgSize: 162 },
+    { dir: 'mipmap-xhdpi', iconSize: 96, fgSize: 216 },
+    { dir: 'mipmap-xxhdpi', iconSize: 144, fgSize: 324 },
+    { dir: 'mipmap-xxxhdpi', iconSize: 192, fgSize: 432 },
+  ];
+
+  for (const { dir, iconSize, fgSize } of mipmapDensities) {
+    const targetDir = path.join(resDir, dir);
+    if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+
+    fs.writeFileSync(path.join(targetDir, 'ic_launcher.png'), generatePng(iconSize, iconSize, { isMaskable: false }));
+    fs.writeFileSync(path.join(targetDir, 'ic_launcher_round.png'), generatePng(iconSize, iconSize, { isRound: true }));
+    fs.writeFileSync(path.join(targetDir, 'ic_launcher_foreground.png'), generatePng(fgSize, fgSize, { isForeground: true }));
+  }
+
+  const splashScreens = [
+    { dir: 'drawable', w: 480, h: 320 },
+    { dir: 'drawable-land-mdpi', w: 480, h: 320 },
+    { dir: 'drawable-land-hdpi', w: 800, h: 480 },
+    { dir: 'drawable-land-xhdpi', w: 1280, h: 720 },
+    { dir: 'drawable-land-xxhdpi', w: 1600, h: 960 },
+    { dir: 'drawable-land-xxxhdpi', w: 1920, h: 1280 },
+    { dir: 'drawable-port-mdpi', w: 320, h: 480 },
+    { dir: 'drawable-port-hdpi', w: 480, h: 800 },
+    { dir: 'drawable-port-xhdpi', w: 720, h: 1280 },
+    { dir: 'drawable-port-xxhdpi', w: 960, h: 1600 },
+    { dir: 'drawable-port-xxxhdpi', w: 1280, h: 1920 },
+  ];
+
+  for (const { dir, w, h } of splashScreens) {
+    const targetDir = path.join(resDir, dir);
+    if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+
+    fs.writeFileSync(path.join(targetDir, 'splash.png'), generatePng(w, h, { isSplash: true }));
+  }
+}
+
+console.log('All icons generated successfully with Tidebound palette colors.');

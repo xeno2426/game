@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Cyber Siege</string>
-    <string name="title_activity_main">Cyber Siege</string>
+    <string name="app_name">Tidebound</string>
+    <string name="title_activity_main">Tidebound</string>
     <string name="package_name">com.xeno2426.game</string>
     <string name="custom_url_scheme">com.xeno2426.game</string>
 </resources>
