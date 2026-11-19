@@ -1,56 +1,145 @@
 import * as THREE from 'three';
+import { InputSystem } from './systems/InputSystem';
+import { Player } from './entities/Player';
+import { CameraSystem } from './systems/CameraSystem';
+import { TouchUI } from './ui/TouchUI';
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+// Initialize Three.js scene & renderer
+const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
+const uiLayer = document.getElementById('ui-layer') as HTMLElement;
 
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-camera.position.set(3, 3, 5);
-camera.lookAt(0, 0.5, 0);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: true,
+  powerPreference: 'high-performance',
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-document.body.style.margin = '0';
-document.body.style.overflow = 'hidden';
-document.body.appendChild(renderer.domElement);
 
-// Lights: Hemisphere + Directional light
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x060812);
+scene.fog = new THREE.FogExp2(0x060812, 0.015);
+
+// Camera System
+const cameraSystem = new CameraSystem(window.innerWidth / window.innerHeight);
+
+// Lighting
+const hemiLight = new THREE.HemisphereLight(0x77aaff, 0x112233, 1.2);
 scene.add(hemiLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 2);
-dirLight.position.set(5, 10, 5);
+const dirLight = new THREE.DirectionalLight(0x00f0ff, 1.8);
+dirLight.position.set(20, 40, 20);
 scene.add(dirLight);
 
-// Green ground plane
-const groundGeo = new THREE.PlaneGeometry(50, 50);
-const groundMat = new THREE.MeshStandardMaterial({ color: 0x4caf50 });
-const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
+// Arena: Grid Floor & Neon Perimeter
+const arenaSize = 54;
+const gridHelper = new THREE.GridHelper(arenaSize, 36, 0x00f0ff, 0x152238);
+gridHelper.position.y = 0.01;
+scene.add(gridHelper);
 
-// Spinning orange cube
-const cubeGeo = new THREE.BoxGeometry(1, 1, 1);
-const cubeMat = new THREE.MeshStandardMaterial({ color: 0xff7043 });
-const cube = new THREE.Mesh(cubeGeo, cubeMat);
-cube.position.y = 0.5;
-scene.add(cube);
+const groundGeo = new THREE.PlaneGeometry(arenaSize, arenaSize);
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0x070b16,
+  roughness: 0.8,
+  metalness: 0.2,
+});
+const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+groundMesh.rotation.x = -Math.PI / 2;
+scene.add(groundMesh);
+
+// Boundary wall markers / neon perimeter
+const boundaryLineGeo = new THREE.BufferGeometry();
+const half = arenaSize / 2;
+const boundaryPts = [
+  new THREE.Vector3(-half, 0.1, -half),
+  new THREE.Vector3(half, 0.1, -half),
+  new THREE.Vector3(half, 0.1, half),
+  new THREE.Vector3(-half, 0.1, half),
+  new THREE.Vector3(-half, 0.1, -half),
+];
+boundaryLineGeo.setFromPoints(boundaryPts);
+const boundaryLineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth: 2 });
+const boundaryLines = new THREE.Line(boundaryLineGeo, boundaryLineMat);
+scene.add(boundaryLines);
+
+// Player Entity
+const player = new Player();
+scene.add(player.mesh);
+
+// Input & UI
+const inputSystem = new InputSystem();
+const touchUI = new TouchUI(uiLayer, inputSystem);
+
+let isPaused = false;
+touchUI.onResumeCallback = () => {
+  isPaused = false;
+};
+touchUI.onRestartCallback = () => {
+  player.reset();
+  isPaused = false;
+};
 
 // Window resize handling
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  cameraSystem.resize(w, h);
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 });
 
-// Animation loop
-renderer.setAnimationLoop(() => {
-  cube.rotation.x += 0.01;
-  cube.rotation.y += 0.01;
-  renderer.render(scene, camera);
-});
+// Fixed Timestep Loop
+const fixedDelta = 1 / 60;
+let lastTime = performance.now();
+let accumulator = 0;
+
+function gameLoop(currentTime: number) {
+  requestAnimationFrame(gameLoop);
+
+  const frameTime = (currentTime - lastTime) / 1000;
+  lastTime = currentTime;
+
+  // Clamp lag spikes to prevent spiral
+  accumulator += Math.min(frameTime, 0.2);
+
+  // Handle pause input
+  if (inputSystem.consumePause()) {
+    isPaused = touchUI.togglePause();
+  }
+
+  while (accumulator >= fixedDelta) {
+    if (!isPaused) {
+      // Desktop keyboard fallback update
+      inputSystem.updateDesktopFallback();
+
+      // Dash check
+      if (inputSystem.consumeDash()) {
+        const dashed = player.triggerDash();
+        if (dashed) {
+          cameraSystem.addTrauma(0.25);
+        }
+      }
+
+      // Update player
+      player.update(
+        fixedDelta,
+        inputSystem.moveVector,
+        inputSystem.aimVector,
+        inputSystem.isAiming
+      );
+
+      // Camera follow
+      cameraSystem.update(fixedDelta, player.position);
+    }
+    accumulator -= fixedDelta;
+  }
+
+  // Update Touch UI
+  const dashCooldownRatio = player.dashCooldownTimer / player.stats.dashCooldown;
+  touchUI.update(inputSystem, dashCooldownRatio);
+
+  // Render scene
+  renderer.render(scene, cameraSystem.camera);
+}
+
+requestAnimationFrame(gameLoop);

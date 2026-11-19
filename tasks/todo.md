@@ -1,15 +1,15 @@
 # Development Checklist & Upgrade Backlog
 
 ## Phase 1: Mobile-First Foundation & Controls
-- [ ] Viewport setup: landscape lock, `touch-action: none`, prevent pull-to-refresh & pinch-zoom, safe-area insets
-- [ ] Three.js 3D scene: arena bounds, grid ground, lighting, low-poly player cyber-ship
-- [ ] Multi-touch pointer tracking system with distinct `pointerId` management
-- [ ] Left dynamic virtual joystick (appears on touch down, smooth directional vector)
-- [ ] Right virtual joystick (aim vector with light aim-assist lock onto nearest target, auto-fire trigger)
-- [ ] Dash button with cooldown animation/radial indicator
-- [ ] Pause button with safe-area padding and overlay
-- [ ] Desktop fallback controls (WASD movement, mouse aim/fire, Space dash)
-- [ ] Phase 1 verification: `npm run build`, test controls, git commit & push
+- [x] Viewport setup: landscape lock, `touch-action: none`, prevent pull-to-refresh & pinch-zoom, safe-area insets
+- [x] Three.js 3D scene: arena bounds, grid ground, lighting, low-poly player cyber-ship
+- [x] Multi-touch pointer tracking system with distinct `pointerId` management
+- [x] Left dynamic virtual joystick (appears on touch down, smooth directional vector)
+- [x] Right virtual joystick (aim vector with light aim-assist lock onto nearest target, auto-fire trigger)
+- [x] Dash button with cooldown animation/radial indicator
+- [x] Pause button with safe-area padding and overlay
+- [x] Desktop fallback controls (WASD movement, mouse aim/fire, Space dash)
+- [x] Phase 1 verification: `npm run build`, test controls, git commit & push
 
 ## Phase 2: Gameplay Loop & Audio-Visual Polish
 - [ ] Escalating wave director: wave timer, spawn intervals, wave clear detection
