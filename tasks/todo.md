@@ -126,6 +126,18 @@
 - [x] R22. Native Android Identity: App name and activity title defined as Tidebound in strings.xml.
 - [x] R23. Palette Themed Assets: PWA and Capacitor launcher/splash icons generated using palette tokens without neon graphics.
 - [x] R24. Comprehensive README: Detailed repository guide covering gameplay, controls, scripts, and APK compilation with zero emojis.
+- [x] R25. HUD Layer Touch Traversal (A1): Wrapper elements are pointer-events none and action cluster has z-index 25, preventing occlusion of buttons.
+- [x] R26. Touch Target Ergonomics (A1, A2): Touch targets maintain >= 56px size with >= 12px gaps across mobile landscape 915x412 and 844x390 viewports.
+- [x] R27. Input Latching Between Ticks (A3): One-shot actions latch on pointerdown and clear only when consumed by fixed simulation ticks, preventing dropped taps.
+- [x] R28. Touch Capture & Window Blur Safety (A4): Action buttons invoke setPointerCapture and release on pointerup/cancel/lostpointercapture; blur and visibilitychange clear held inputs.
+- [x] R29. Jump & Dodge Separation (A5): Jump uses JUMP_VELOCITY with 0.1s coyote time and 0.12s input buffer; separate Dodge button dodges along movement vector and expends stamina only upon activation.
+- [x] R30. Context Interact Prompt Ownership (A6): Single centralized evaluator computes priority among raft, salvage crate, resource node, and build placement.
+- [x] R31. Comprehensive Crafting & Modal Pause (A7): Inventory displays all recipes with uncraftable recipes disabled; opening inventory/build menus pauses simulation.
+- [x] R32. Build Mode Single Placement (A8): Attack button switches to Place in build mode, placing once per tap without auto-repeat when held.
+- [x] R33. Transform Interpolation & Frame-Rate Decoupling (B1, B2): Loop alpha interpolates positions and rotations for player, enemies, and raft; camera smoothing uses 1 - exp(-k * frameDt); fixed steps capped at 3 with maxFrameTime 0.1.
+- [x] R34. Shadow Texel Grid Snapping & PCFShadowMap (B3): Directional sun uses constant offset from target, texel grid snapping, and PCFShadowMap with Low preset shadow toggle.
+- [x] R35. Quality Presets & Dynamic Resolution (B4): QualityManager adjusts DPR (0.75-1.5) based on 100-frame average and cuts off shadows if frame time exceeds 24ms.
+- [x] R36. Material Sharing, Merged Geometries, and GPU Rain (B5, B6, B7, B8, B9): MeshLambertMaterial with cached geometries and merged props reduces draw calls; water snaps to grid; rain runs on GPU shader; debug overlay updates at 2Hz via textContent.
 
 ---
 
@@ -154,10 +166,10 @@
 - [x] Group B verification: npx tsc --noEmit, npm run build, npm test, npm run test:ui, lessons.md, commit and push
 
 ## Group C: Verification & Final Report
-- [ ] Build, tests, test:ui verification
-- [ ] Before and after performance metrics
-- [ ] Regression verification checklist
-- [ ] Final summary table (problem, file changed, test added, unfixed items)
+- [x] Build, tests, test:ui verification
+- [x] Before and after performance metrics
+- [x] Regression verification checklist
+- [x] Final summary table (problem, file changed, test added, unfixed items)
 
 ---
 
