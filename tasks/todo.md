@@ -93,11 +93,39 @@
 - [x] Group D verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
 
 ### Group E: Verification & Final Report
-- [ ] Run full build and tests
-- [ ] Start npm run dev -- --host and curl it
-- [ ] Run npm run preview and verify PWA manifest and icons served
-- [ ] Regression checklist in tasks/todo.md
-- [ ] Summary report table with bug id, file changed, test added, and any unfixed items
+- [x] Run full build and tests (tsc, vitest, vite build: 8/8 test files, 30/30 tests passed)
+- [x] Start npm run dev -- --host and curl it (HTTP 200 OK)
+- [x] Run npm run preview and verify PWA manifest and icons served (HTTP 200 OK for index, manifest.webmanifest, and PWA icons)
+- [x] Regression checklist in tasks/todo.md
+- [x] Summary report table with bug id, file changed, test added, and any unfixed items
+
+---
+
+## Regression Verification Checklist
+- [x] R1. No Test/Vitest Imports in Production: Static lint check passes and production dist contains 0 references to vitest.
+- [x] R2. Ocean Surface Math: Water mesh Y transform fixed at 0; shader and CPU wave formula agree at runtime.
+- [x] R3. Virtual Joystick Lifecycle: TouchControls.update() invoked every animation frame; joystick thumb tracking operational.
+- [x] R4. Weapon Mesh Pooling: Player.equipItem verifies itemId and mesh existence before altering scene graph.
+- [x] R5. Hound Lunge Multi-Damage Guard: hasHitThisLunge boolean prevents damage infliction beyond first hit per lunge.
+- [x] R6. Directional Raycast Alignment: Shared getForwardFromYaw computes forward vectors identically for Player and CombatSystem.
+- [x] R7. State Persistence & Migration: validateAndMigrateSave successfully recovers valid saves and recovers from invalid/corrupted payloads.
+- [x] R8. Quick-Slot Touch Handling: pointerdown listeners with stopPropagation prevent camera movement when selecting tools.
+- [x] R9. Build Mode Cancellation: Radial build menu includes central cancel action; Escape and slot changes dismiss active blueprint.
+- [x] R10. Raft Passenger Transform: Boarded state tracks raft delta displacement and deck height; disables ground/water gravity.
+- [x] R11. Death & Salvage Crates: Dropped items encapsulated in interactable salvage crates; respawn restores all vitals to full.
+- [x] R12. Stamina & Warmth Calculations: Dodge stamina deducted once; campfire and roof shelter conditions mitigate freeze and exposure.
+- [x] R13. Building Structural Collision: Static AABBs for walls/doors resolve pushback; ground height clamps player above floor structures.
+- [x] R14. Inventory Modal & Station Crafting: Modal blocks touch pass-through; campfire and workbench requirements dynamically fulfilled.
+- [x] R15. Camera Shoulder & Head Orientation: Over-the-shoulder offset rotates with yaw; first-person looks outward along spherical angles.
+- [x] R16. Quick-Bar DOM Guard: setActiveQuickSlot early-returns if slot unchanged, preventing layout thrashing.
+- [x] R17. Item Stacking & Spillover: addItemToInventory fills partial stacks, caps empty slots to maxStack, and spills remainder.
+- [x] R18. Desktop Input Separation: Left click triggers attack; right click / pointer lock controls camera; e.repeat ignored for toggle keys.
+- [x] R19. Telegraph Visual Offset: Procedural anticipation offset reapplied after position copy.
+- [x] R20. DOM Class Preservation: HUD tide alert updates via classList.toggle('warning', ...) preserving hud-interactive.
+- [x] R21. Zero Per-Frame Allocations: GameLoop boundTick, reusable scratch vectors, preallocated TypedArrays, and zero runtime closures in update paths.
+- [x] R22. Native Android Identity: App name and activity title defined as Tidebound in strings.xml.
+- [x] R23. Palette Themed Assets: PWA and Capacitor launcher/splash icons generated using palette tokens without neon graphics.
+- [x] R24. Comprehensive README: Detailed repository guide covering gameplay, controls, scripts, and APK compilation with zero emojis.
 
 ---
 
