@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Full bleed background for adaptive cropping -->
+  <rect width="512" height="512" fill="#0D3B4C"/>
+  <!-- Safe zone inner content (within 75% safe circle r=190 at cx=256, cy=256) -->
+  <polygon points="150,340 256,180 362,340" fill="#6E7478"/>
+  <polygon points="210,340 256,220 302,340" fill="#DFC79A"/>
+  <circle cx="256" cy="165" r="14" fill="#FF7A29"/>
+  <!-- Ocean Waves inside safe zone -->
+  <path d="M80 350 C 140 330, 200 370, 256 350 C 312 330, 372 370, 432 350 L 432 410 L 80 410 Z" fill="#1E8E8E"/>
+  <path d="M80 350 C 140 330, 200 370, 256 350 C 312 330, 372 370, 432 350" fill="none" stroke="#E6F7F5" stroke-width="10" stroke-linecap="round"/>
+</svg>

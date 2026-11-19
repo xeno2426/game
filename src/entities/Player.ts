@@ -1,221 +1,188 @@
 import * as THREE from 'three';
-
-export interface PlayerStats {
-  maxHp: number;
-  moveSpeed: number;
-  fireRate: number;      // shots per second
-  bulletDamage: number;
-  bulletSpeed: number;
-  dashCooldown: number;  // seconds
-  pickupRadius: number;
-}
+import { AssetRegistry, type PlayerRig } from './AssetRegistry';
+import { MOVEMENT_CONSTANTS, VITALS_CONSTANTS } from '../data/constants';
+import type { InputState } from '../core/InputManager';
+import type { Terrain } from '../world/Terrain';
 
 export class Player {
-  public mesh: THREE.Group;
-  public position: THREE.Vector3;
-  public hp: number;
-  public stats: PlayerStats;
+  public rig: PlayerRig;
+  public position: THREE.Vector3 = new THREE.Vector3(0, 8, 12);
+  public velocity: THREE.Vector3 = new THREE.Vector3();
+  public rotationY = 0;
 
-  // Dash state
-  public isDashing = false;
-  public dashTimer = 0;
-  public dashDuration = 0.16; // seconds of dash burst
-  public dashCooldownTimer = 0;
-  public dashDirection = new THREE.Vector3(0, 0, -1);
+  public isGrounded = true;
+  public isSwimming = false;
+  public isDodging = false;
+  public dodgeTimer = 0;
+  public attackTimer = 0;
 
-  // Invulnerability & damage flash
-  public invulnerableTimer = 0;
-  public flashTimer = 0;
-  private hullMaterial: THREE.MeshStandardMaterial;
-  private glowMaterial: THREE.MeshBasicMaterial;
+  public currentEquippedItem: string | null = 'scrap_axe';
+  private equippedMesh: THREE.Object3D | null = null;
 
-  // Arena bounds
-  public arenaHalfWidth = 26;
-  public arenaHalfDepth = 26;
+  // Animation cycle accumulator
+  private animTime = 0;
 
-  // Scratch vectors for zero GC
-  private static readonly _moveDir = new THREE.Vector3();
+  // Scratch vectors for zero allocation
+  private _moveDir = new THREE.Vector3();
+  private _forward = new THREE.Vector3();
+  private _right = new THREE.Vector3();
 
-  constructor() {
-    this.stats = {
-      maxHp: 100,
-      moveSpeed: 10.5,
-      fireRate: 4.5,
-      bulletDamage: 25,
-      bulletSpeed: 28,
-      dashCooldown: 1.25,
-      pickupRadius: 4.5,
-    };
-    this.hp = this.stats.maxHp;
+  constructor(scene: THREE.Scene) {
+    this.rig = AssetRegistry.get().createPlayerMesh();
+    this.rig.root.position.copy(this.position);
+    scene.add(this.rig.root);
 
-    this.mesh = new THREE.Group();
-    this.position = this.mesh.position;
-    this.position.set(0, 0.4, 0);
+    this.equipItem('scrap_axe');
+  }
 
-    // Build low-poly cyber-ship
-    this.hullMaterial = new THREE.MeshStandardMaterial({
-      color: 0x00f0ff,
-      roughness: 0.3,
-      metalness: 0.8,
-      flatShading: true,
-    });
+  public equipItem(itemId: string | null): void {
+    this.currentEquippedItem = itemId;
+    if (this.equippedMesh) {
+      this.rig.weaponSocket.remove(this.equippedMesh);
+      this.equippedMesh = null;
+    }
 
-    this.glowMaterial = new THREE.MeshBasicMaterial({
-      color: 0x00ffff,
-    });
-
-    // Central sleek fuselage
-    const bodyGeo = new THREE.ConeGeometry(0.7, 2.0, 5);
-    bodyGeo.rotateX(Math.PI / 2); // point forward along -Z
-    const body = new THREE.Mesh(bodyGeo, this.hullMaterial);
-    body.scale.set(0.9, 0.4, 1.0);
-    this.mesh.add(body);
-
-    // Cockpit canopy
-    const canopyGeo = new THREE.BoxGeometry(0.4, 0.35, 0.7);
-    const canopyMat = new THREE.MeshStandardMaterial({
-      color: 0x051025,
-      roughness: 0.1,
-      metalness: 0.9,
-    });
-    const canopy = new THREE.Mesh(canopyGeo, canopyMat);
-    canopy.position.set(0, 0.22, -0.1);
-    this.mesh.add(canopy);
-
-    // Wings
-    const wingGeo = new THREE.BoxGeometry(2.4, 0.08, 0.9);
-    const wingMat = new THREE.MeshStandardMaterial({
-      color: 0x0f2038,
-      roughness: 0.4,
-      metalness: 0.7,
-      flatShading: true,
-    });
-    const wings = new THREE.Mesh(wingGeo, wingMat);
-    wings.position.set(0, 0.05, 0.2);
-    this.mesh.add(wings);
-
-    // Left and right blaster cannons
-    const cannonGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.8, 6);
-    cannonGeo.rotateX(Math.PI / 2);
-    const cannonMat = new THREE.MeshStandardMaterial({
-      color: 0x445566,
-      metalness: 0.9,
-    });
-    const leftCannon = new THREE.Mesh(cannonGeo, cannonMat);
-    leftCannon.position.set(-0.85, 0.05, -0.3);
-    const rightCannon = new THREE.Mesh(cannonGeo, cannonMat);
-    rightCannon.position.set(0.85, 0.05, -0.3);
-    this.mesh.add(leftCannon);
-    this.mesh.add(rightCannon);
-
-    // Engine thruster glow
-    const thrusterGeo = new THREE.CylinderGeometry(0.2, 0.3, 0.3, 6);
-    thrusterGeo.rotateX(Math.PI / 2);
-    const thruster = new THREE.Mesh(thrusterGeo, this.glowMaterial);
-    thruster.position.set(0, 0.05, 0.95);
-    this.mesh.add(thruster);
+    if (itemId === 'scrap_axe') {
+      this.equippedMesh = AssetRegistry.get().createScrapAxe();
+      this.rig.weaponSocket.add(this.equippedMesh);
+    } else if (itemId === 'slingshot') {
+      this.equippedMesh = AssetRegistry.get().createSlingshot();
+      this.rig.weaponSocket.add(this.equippedMesh);
+    }
   }
 
   public update(
     dt: number,
-    moveInput: THREE.Vector2,
-    aimInput: THREE.Vector2,
-    isAiming: boolean
-  ) {
-    // Update cooldowns
-    if (this.dashCooldownTimer > 0) {
-      this.dashCooldownTimer = Math.max(0, this.dashCooldownTimer - dt);
+    input: InputState,
+    cameraYaw: number,
+    terrain: Terrain,
+    waterLevel: number,
+    stamina: number
+  ): { staminaCost: number; hasAttacked: boolean } {
+    let staminaCost = 0;
+    let hasAttacked = false;
+
+    // Attack cooldown
+    if (this.attackTimer > 0) {
+      this.attackTimer = Math.max(0, this.attackTimer - dt);
     }
-    if (this.invulnerableTimer > 0) {
-      this.invulnerableTimer = Math.max(0, this.invulnerableTimer - dt);
+
+    if (input.isAttackPressed && this.attackTimer === 0) {
+      this.attackTimer = 0.45;
+      hasAttacked = true;
     }
-    if (this.flashTimer > 0) {
-      this.flashTimer = Math.max(0, this.flashTimer - dt);
-      if (this.flashTimer <= 0) {
-        this.hullMaterial.color.setHex(0x00f0ff);
+
+    // Dodge action
+    if (input.isJumpPressed && !this.isDodging && this.isGrounded && stamina >= VITALS_CONSTANTS.STAMINA_DODGE_COST) {
+      this.isDodging = true;
+      this.dodgeTimer = MOVEMENT_CONSTANTS.DODGE_DURATION;
+      staminaCost += VITALS_CONSTANTS.STAMINA_DODGE_COST;
+    }
+
+    if (this.isDodging) {
+      this.dodgeTimer -= dt;
+      if (this.dodgeTimer <= 0) {
+        this.isDodging = false;
       }
     }
 
-    // Dash update
-    if (this.isDashing) {
-      this.dashTimer -= dt;
-      const dashSpeed = this.stats.moveSpeed * 3.2;
-      this.position.x += this.dashDirection.x * dashSpeed * dt;
-      this.position.z += this.dashDirection.z * dashSpeed * dt;
+    // Camera relative movement
+    this._forward.set(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw)).normalize();
+    this._right.set(Math.cos(cameraYaw), 0, -Math.sin(cameraYaw)).normalize();
 
-      if (this.dashTimer <= 0) {
-        this.isDashing = false;
-      }
+    this._moveDir.set(0, 0, 0);
+    this._moveDir.addScaledVector(this._right, input.moveX);
+    this._moveDir.addScaledVector(this._forward, -input.moveZ);
+
+    const inputLen = this._moveDir.length();
+    if (inputLen > 1.0) {
+      this._moveDir.normalize();
+    }
+
+    // Swimming check
+    const terrainH = terrain.getHeight(this.position.x, this.position.z);
+    this.isSwimming = this.position.y < waterLevel - 0.4;
+
+    // Movement speed resolution
+    let targetSpeed = 0;
+    if (this.isDodging) {
+      targetSpeed = MOVEMENT_CONSTANTS.DODGE_SPEED;
+    } else if (this.isSwimming) {
+      targetSpeed = MOVEMENT_CONSTANTS.SWIM_SPEED * inputLen;
+    } else if (input.isSprinting && stamina > 0) {
+      targetSpeed = MOVEMENT_CONSTANTS.SPRINT_SPEED * inputLen;
+      staminaCost += VITALS_CONSTANTS.STAMINA_SPRINT_DRAIN_PER_SEC * dt;
     } else {
-      // Normal movement
-      if (moveInput.lengthSq() > 0.01) {
-        // moveInput.x -> X, moveInput.y -> Z
-        Player._moveDir.set(moveInput.x, 0, moveInput.y).normalize();
-        const speed = this.stats.moveSpeed;
-        this.position.x += Player._moveDir.x * speed * dt;
-        this.position.z += Player._moveDir.z * speed * dt;
+      targetSpeed = MOVEMENT_CONSTANTS.WALK_SPEED * inputLen;
+    }
+
+    // Update horizontal position
+    if (inputLen > 0.05 || this.isDodging) {
+      this.position.x += this._moveDir.x * targetSpeed * dt;
+      this.position.z += this._moveDir.z * targetSpeed * dt;
+
+      // Face movement direction
+      const targetAngle = Math.atan2(this._moveDir.x, this._moveDir.z);
+      // Angular slerp
+      let diff = targetAngle - this.rotationY;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      this.rotationY += diff * Math.min(1.0, dt * 12.0);
+    }
+
+    // Vertical physics & heightfield collision
+    if (this.isSwimming) {
+      // Bobbing on water surface
+      const targetY = waterLevel - 0.8;
+      this.position.y += (targetY - this.position.y) * Math.min(1.0, dt * 8.0);
+      this.velocity.y = 0;
+      this.isGrounded = false;
+    } else {
+      // Normal gravity
+      this.velocity.y -= MOVEMENT_CONSTANTS.GRAVITY * dt;
+      this.position.y += this.velocity.y * dt;
+
+      // Terrain ground clamping
+      if (this.position.y <= terrainH) {
+        this.position.y = terrainH;
+        this.velocity.y = 0;
+        this.isGrounded = true;
+      } else {
+        this.isGrounded = false;
       }
     }
 
-    // Clamp within arena bounds
-    this.position.x = Math.max(-this.arenaHalfWidth, Math.min(this.arenaHalfWidth, this.position.x));
-    this.position.z = Math.max(-this.arenaHalfDepth, Math.min(this.arenaHalfDepth, this.position.z));
+    this.rig.root.position.copy(this.position);
+    this.rig.root.rotation.y = this.rotationY;
 
-    // Ship Rotation
-    if (isAiming && aimInput.lengthSq() > 0.05) {
-      // Aim takes precedence
-      const targetAngle = Math.atan2(aimInput.x, aimInput.y);
-      this.mesh.rotation.y = THREE.MathUtils.lerp(this.mesh.rotation.y, targetAngle + Math.PI, 0.35);
-    } else if (moveInput.lengthSq() > 0.05) {
-      // Face movement direction
-      const targetAngle = Math.atan2(moveInput.x, moveInput.y);
-      this.mesh.rotation.y = THREE.MathUtils.lerp(this.mesh.rotation.y, targetAngle + Math.PI, 0.25);
+    // Procedural animation update
+    this.updateAnimation(dt, targetSpeed);
+
+    return { staminaCost, hasAttacked };
+  }
+
+  private updateAnimation(dt: number, speed: number): void {
+    this.animTime += dt * Math.max(1.5, speed * 2.2);
+
+    const isMoving = speed > 0.2;
+    const swingFactor = isMoving ? Math.sin(this.animTime) : 0;
+
+    // Limb swing
+    this.rig.leftLeg.rotation.x = swingFactor * 0.65;
+    this.rig.rightLeg.rotation.x = -swingFactor * 0.65;
+    this.rig.leftArm.rotation.x = -swingFactor * 0.5;
+
+    // If attacking, play rapid chop with right arm
+    if (this.attackTimer > 0) {
+      const chopProgress = 1.0 - this.attackTimer / 0.45;
+      const chopAngle = Math.sin(chopProgress * Math.PI) * 1.4;
+      this.rig.rightArm.rotation.x = -chopAngle;
+    } else {
+      this.rig.rightArm.rotation.x = swingFactor * 0.5;
     }
 
-    // Bank / roll slightly into turns
-    const rollTarget = -moveInput.x * 0.25;
-    this.mesh.rotation.z = THREE.MathUtils.lerp(this.mesh.rotation.z, rollTarget, 0.2);
-  }
-
-  public triggerDash(): boolean {
-    if (this.dashCooldownTimer > 0 || this.isDashing) return false;
-
-    this.isDashing = true;
-    this.dashTimer = this.dashDuration;
-    this.dashCooldownTimer = this.stats.dashCooldown;
-    this.invulnerableTimer = this.dashDuration + 0.1; // invulnerable during dash
-
-    // Dash towards current ship facing
-    const facingAngle = this.mesh.rotation.y;
-    this.dashDirection.set(-Math.sin(facingAngle), 0, -Math.cos(facingAngle)).normalize();
-    return true;
-  }
-
-  public takeDamage(amount: number): boolean {
-    if (this.invulnerableTimer > 0 || this.hp <= 0) return false;
-
-    this.hp = Math.max(0, this.hp - amount);
-    this.invulnerableTimer = 0.5; // half second i-frames
-    this.flashTimer = 0.15;
-    this.hullMaterial.color.setHex(0xff0055);
-    return true;
-  }
-
-  public heal(amount: number) {
-    this.hp = Math.min(this.stats.maxHp, this.hp + amount);
-  }
-
-  public reset(stats?: Partial<PlayerStats>) {
-    if (stats) {
-      Object.assign(this.stats, stats);
-    }
-    this.hp = this.stats.maxHp;
-    this.position.set(0, 0.4, 0);
-    this.isDashing = false;
-    this.dashTimer = 0;
-    this.dashCooldownTimer = 0;
-    this.invulnerableTimer = 0;
-    this.flashTimer = 0;
-    this.hullMaterial.color.setHex(0x00f0ff);
+    // Torso idle breathing / bounce
+    const bounce = isMoving ? Math.abs(Math.cos(this.animTime)) * 0.08 : Math.sin(this.animTime * 1.5) * 0.02;
+    this.rig.torso.position.y = 1.05 + bounce;
   }
 }

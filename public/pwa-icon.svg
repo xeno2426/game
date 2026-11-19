@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="100" fill="#0D3B4C"/>
+  <!-- Mountain / Island silhouette -->
+  <polygon points="120,360 256,160 392,360" fill="#6E7478"/>
+  <polygon points="200,360 256,210 320,360" fill="#DFC79A"/>
+  <!-- Beacon / Ember Spark -->
+  <circle cx="256" cy="140" r="16" fill="#FF7A29"/>
+  <!-- Ocean Waves -->
+  <path d="M40 370 C 120 340, 180 400, 256 370 C 332 340, 392 400, 472 370 L 472 450 L 40 450 Z" fill="#1E8E8E"/>
+  <path d="M40 370 C 120 340, 180 400, 256 370 C 332 340, 392 400, 472 370" fill="none" stroke="#E6F7F5" stroke-width="12" stroke-linecap="round"/>
+</svg>

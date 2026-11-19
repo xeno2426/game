@@ -1,262 +1,159 @@
-import { Player } from '../entities/Player';
-import { sound } from '../audio/SoundSynth';
-import { Haptics } from '../audio/Haptics';
-
-export interface UpgradeOption {
-  id: string;
-  name: string;
-  icon: string;
-  desc: string;
-  apply: (player: Player) => void;
-}
-
-const ALL_UPGRADES: UpgradeOption[] = [
-  {
-    id: 'dmg',
-    name: 'DAMAGE BOOST',
-    icon: '⚡',
-    desc: '+30% Bullet Damage',
-    apply: (p) => { p.stats.bulletDamage = Math.round(p.stats.bulletDamage * 1.3); },
-  },
-  {
-    id: 'fireRate',
-    name: 'RAPID FIRE',
-    icon: '🔥',
-    desc: '+25% Firing Speed',
-    apply: (p) => { p.stats.fireRate = Number((p.stats.fireRate * 1.25).toFixed(2)); },
-  },
-  {
-    id: 'speed',
-    name: 'HYPER ENGINE',
-    icon: '🚀',
-    desc: '+15% Move Speed',
-    apply: (p) => { p.stats.moveSpeed = Number((p.stats.moveSpeed * 1.15).toFixed(2)); },
-  },
-  {
-    id: 'health',
-    name: 'HULL REPAIR',
-    icon: '🛡️',
-    desc: '+40 Max HP & Full Heal',
-    apply: (p) => {
-      p.stats.maxHp += 40;
-      p.hp = p.stats.maxHp;
-    },
-  },
-  {
-    id: 'magnet',
-    name: 'MAGNET PULSE',
-    icon: '🧲',
-    desc: '+50% XP Pickup Radius',
-    apply: (p) => { p.stats.pickupRadius = Number((p.stats.pickupRadius * 1.5).toFixed(2)); },
-  },
-  {
-    id: 'dash',
-    name: 'TURBO DASH',
-    icon: '💨',
-    desc: '-25% Dash Cooldown',
-    apply: (p) => { p.stats.dashCooldown = Math.max(0.4, Number((p.stats.dashCooldown * 0.75).toFixed(2))); },
-  },
-];
+import { getSvgIcon } from './icons';
+import { ITEMS } from '../data/items';
 
 export class HUD {
   private container: HTMLElement;
-  private hpBarFill: HTMLElement;
-  private hpText: HTMLElement;
-  private waveText: HTMLElement;
-  private scoreText: HTMLElement;
-  private highScoreText: HTMLElement;
-  private xpBarFill: HTMLElement;
+  private healthFill: HTMLElement;
+  private hydrationFill: HTMLElement;
+  private hungerFill: HTMLElement;
+  private exposureFill: HTMLElement;
 
-  private upgradeModal: HTMLElement;
-  private gameOverModal: HTMLElement;
+  private tidePanel: HTMLElement;
+  private tideTimeText: HTMLElement;
+  private quickSlots: HTMLElement[] = [];
+  private interactPrompt: HTMLElement;
 
-  public score = 0;
-  public highScore = 0;
-  public currentXp = 0;
-  public xpToNextLevel = 5;
-  public playerLevel = 1;
+  constructor() {
+    this.container = document.createElement('div');
+    this.container.className = 'hud-layer';
+    this.container.innerHTML = `
+      <!-- Top Bar: Vitals and Tide -->
+      <div class="top-hud-bar">
+        <div class="ui-panel vitals-cluster hud-interactive">
+          <div class="vital-row">
+            <div class="vital-icon">${getSvgIcon('health', 16)}</div>
+            <div class="vital-bar-track">
+              <div id="fill-health" class="vital-bar-fill fill-health"></div>
+            </div>
+          </div>
+          <div class="vital-row">
+            <div class="vital-icon">${getSvgIcon('hydration', 16)}</div>
+            <div class="vital-bar-track">
+              <div id="fill-hydration" class="vital-bar-fill fill-hydration"></div>
+            </div>
+          </div>
+          <div class="vital-row">
+            <div class="vital-icon">${getSvgIcon('hunger', 16)}</div>
+            <div class="vital-bar-track">
+              <div id="fill-hunger" class="vital-bar-fill fill-hunger"></div>
+            </div>
+          </div>
+          <div class="vital-row">
+            <div class="vital-icon">${getSvgIcon('exposure', 16)}</div>
+            <div class="vital-bar-track">
+              <div id="fill-exposure" class="vital-bar-fill fill-exposure"></div>
+            </div>
+          </div>
+        </div>
 
-  public onUpgradeSelectedCallback?: () => void;
-  public onRestartCallback?: () => void;
-
-  constructor(container: HTMLElement) {
-    this.container = container;
-
-    // Load persistent high score
-    const saved = localStorage.getItem('cyber_siege_high_score');
-    this.highScore = saved ? parseInt(saved, 10) || 0 : 0;
-
-    // Top XP Bar
-    const xpContainer = document.createElement('div');
-    xpContainer.id = 'xp-bar-container';
-    xpContainer.innerHTML = `<div id="xp-bar-fill"></div>`;
-    this.xpBarFill = xpContainer.querySelector('#xp-bar-fill')!;
-
-    // Top HUD Row
-    const topRow = document.createElement('div');
-    topRow.id = 'hud-top';
-    topRow.innerHTML = `
-      <div class="hud-bar-container">
-        <div id="hp-bar-fill"></div>
-        <div id="hp-text">100 / 100 HP</div>
+        <div id="tide-panel" class="ui-panel tide-panel hud-interactive">
+          <div class="tide-indicator"></div>
+          <span id="tide-time-text">LOW TIDE (10:00)</span>
+        </div>
       </div>
-      <div class="hud-stat-box">
-        <span class="stat-label">WAVE</span>
-        <span id="hud-wave">1</span>
-      </div>
-      <div class="hud-stat-box">
-        <span class="stat-label">SCORE</span>
-        <span id="hud-score">0</span>
-      </div>
-      <div class="hud-stat-box">
-        <span class="stat-label">BEST</span>
-        <span id="hud-highscore">${this.highScore}</span>
-      </div>
-    `;
 
-    this.hpBarFill = topRow.querySelector('#hp-bar-fill')!;
-    this.hpText = topRow.querySelector('#hp-text')!;
-    this.waveText = topRow.querySelector('#hud-wave')!;
-    this.scoreText = topRow.querySelector('#hud-score')!;
-    this.highScoreText = topRow.querySelector('#hud-highscore')!;
+      <!-- Center Context Interact Prompt -->
+      <div id="interact-prompt" class="ui-panel hud-interactive" style="display: none; align-self: center; padding: 6px 14px; font-weight: 600; font-size: 13px; margin-bottom: 20px;">
+        <span id="interact-text">INTERACT</span>
+      </div>
 
-    // Upgrade Choice Modal
-    this.upgradeModal = document.createElement('div');
-    this.upgradeModal.id = 'upgrade-modal';
-    this.upgradeModal.className = 'modal-overlay';
-    this.upgradeModal.innerHTML = `
-      <div class="modal-card">
-        <h2 class="modal-title">WAVE COMPLETE!</h2>
-        <p class="modal-body">Choose a cybernetic enhancement for your ship:</p>
-        <div id="upgrade-choices" class="upgrade-grid"></div>
+      <!-- Bottom Quick Bar -->
+      <div class="bottom-bar">
+        <div class="ui-panel quick-bar hud-interactive" id="quick-bar-container"></div>
       </div>
     `;
 
-    // Game Over Modal
-    this.gameOverModal = document.createElement('div');
-    this.gameOverModal.id = 'game-over-modal';
-    this.gameOverModal.className = 'modal-overlay';
-    this.gameOverModal.innerHTML = `
-      <div class="modal-card">
-        <h2 class="modal-title" style="background: linear-gradient(90deg, #ff0055, #ffaa00); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">VESSEL DESTROYED</h2>
-        <div id="new-high-score-banner" style="display: none; color: #ffea00; font-weight: 800; font-size: 15px; margin-bottom: 8px;">★ NEW HIGH SCORE! ★</div>
-        <p class="modal-body" id="game-over-stats"></p>
-        <button id="game-over-restart-btn" class="modal-btn">REDEPLOY VESSEL</button>
-      </div>
-    `;
+    document.getElementById('app')?.appendChild(this.container);
 
-    this.container.appendChild(xpContainer);
-    this.container.appendChild(topRow);
-    this.container.appendChild(this.upgradeModal);
-    this.container.appendChild(this.gameOverModal);
+    this.healthFill = this.container.querySelector('#fill-health') as HTMLElement;
+    this.hydrationFill = this.container.querySelector('#fill-hydration') as HTMLElement;
+    this.hungerFill = this.container.querySelector('#fill-hunger') as HTMLElement;
+    this.exposureFill = this.container.querySelector('#fill-exposure') as HTMLElement;
+    this.tidePanel = this.container.querySelector('#tide-panel') as HTMLElement;
+    this.tideTimeText = this.container.querySelector('#tide-time-text') as HTMLElement;
+    this.interactPrompt = this.container.querySelector('#interact-prompt') as HTMLElement;
 
-    const restartBtn = this.gameOverModal.querySelector('#game-over-restart-btn') as HTMLElement;
-    restartBtn.addEventListener('click', () => {
-      this.hideGameOver();
-      if (this.onRestartCallback) this.onRestartCallback();
-    });
+    this.initQuickBar();
   }
 
-  public update(player: Player, wave: number) {
-    // Update HP bar
-    const hpPct = Math.max(0, Math.min(100, (player.hp / player.stats.maxHp) * 100));
-    this.hpBarFill.style.width = `${hpPct}%`;
-    this.hpText.textContent = `${Math.ceil(player.hp)} / ${player.stats.maxHp} HP`;
+  private initQuickBar(): void {
+    const qb = this.container.querySelector('#quick-bar-container') as HTMLElement;
+    qb.innerHTML = '';
+    this.quickSlots = [];
 
-    // Change bar color gradient at low HP
-    if (hpPct < 25) {
-      this.hpBarFill.style.background = 'linear-gradient(90deg, #ff0000 0%, #ff5500 100%)';
-    } else {
-      this.hpBarFill.style.background = 'linear-gradient(90deg, #ff0055 0%, #00ff88 100%)';
-    }
-
-    // Update Wave & Score
-    this.waveText.textContent = `${wave}`;
-    this.scoreText.textContent = `${this.score}`;
-    this.highScoreText.textContent = `${this.highScore}`;
-
-    // Update XP Bar
-    const xpPct = Math.min(100, (this.currentXp / this.xpToNextLevel) * 100);
-    this.xpBarFill.style.width = `${xpPct}%`;
-  }
-
-  public addScore(points: number) {
-    this.score += points;
-    if (this.score > this.highScore) {
-      this.highScore = this.score;
-      localStorage.setItem('cyber_siege_high_score', this.highScore.toString());
-    }
-  }
-
-  public addXp(amount: number): boolean {
-    this.currentXp += amount;
-    if (this.currentXp >= this.xpToNextLevel) {
-      this.currentXp -= this.xpToNextLevel;
-      this.playerLevel++;
-      this.xpToNextLevel = Math.round(this.xpToNextLevel * 1.5 + 4);
-      sound.playLevelUp();
-      Haptics.levelUp();
-      return true; // Leveled up!
-    }
-    return false;
-  }
-
-  public showUpgradeModal(player: Player, onComplete: () => void) {
-    sound.playLevelUp();
-    Haptics.levelUp();
-
-    const choicesContainer = this.upgradeModal.querySelector('#upgrade-choices')!;
-    choicesContainer.innerHTML = '';
-
-    // Pick 3 random distinct upgrades
-    const shuffled = [...ALL_UPGRADES].sort(() => Math.random() - 0.5).slice(0, 3);
-
-    shuffled.forEach((upgrade) => {
-      const card = document.createElement('div');
-      card.className = 'upgrade-card';
-      card.innerHTML = `
-        <div class="upgrade-icon">${upgrade.icon}</div>
-        <div class="upgrade-name">${upgrade.name}</div>
-        <div class="upgrade-desc">${upgrade.desc}</div>
+    for (let i = 0; i < 5; i++) {
+      const slot = document.createElement('div');
+      slot.className = `quick-slot ${i === 0 ? 'active' : ''}`;
+      slot.dataset.slotIndex = i.toString();
+      slot.innerHTML = `
+        <div class="slot-icon-container"></div>
+        <div class="slot-count"></div>
       `;
-
-      card.addEventListener('click', () => {
-        upgrade.apply(player);
-        this.upgradeModal.classList.remove('active');
-        onComplete();
-      });
-
-      choicesContainer.appendChild(card);
-    });
-
-    this.upgradeModal.classList.add('active');
+      qb.appendChild(slot);
+      this.quickSlots.push(slot);
+    }
   }
 
-  public showGameOver(finalScore: number, waveReached: number) {
-    const isNewHigh = finalScore >= this.highScore && finalScore > 0;
-    const banner = this.gameOverModal.querySelector('#new-high-score-banner') as HTMLElement;
-    banner.style.display = isNewHigh ? 'block' : 'none';
-
-    const statsEl = this.gameOverModal.querySelector('#game-over-stats') as HTMLElement;
-    statsEl.innerHTML = `
-      Final Score: <strong>${finalScore}</strong><br>
-      Waves Survived: <strong>${waveReached - 1}</strong><br>
-      High Score: <strong>${this.highScore}</strong>
-    `;
-
-    this.gameOverModal.classList.add('active');
+  public updateVitals(health: number, hydration: number, hunger: number, exposure: number): void {
+    this.healthFill.style.width = `${Math.max(0, Math.min(100, health))}%`;
+    this.hydrationFill.style.width = `${Math.max(0, Math.min(100, hydration))}%`;
+    this.hungerFill.style.width = `${Math.max(0, Math.min(100, hunger))}%`;
+    this.exposureFill.style.width = `${Math.max(0, Math.min(100, exposure))}%`;
   }
 
-  public hideGameOver() {
-    this.gameOverModal.classList.remove('active');
+  public updateTide(phase: 'low' | 'warning' | 'high', timeRemainingSec: number): void {
+    const mins = Math.floor(timeRemainingSec / 60);
+    const secs = Math.floor(timeRemainingSec % 60);
+    const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+    if (phase === 'warning') {
+      this.tidePanel.className = 'ui-panel tide-panel warning';
+      this.tideTimeText.textContent = `TIDE WARNING (${formatted})`;
+    } else if (phase === 'high') {
+      this.tidePanel.className = 'ui-panel tide-panel';
+      this.tideTimeText.textContent = `HIGH TIDE (${formatted})`;
+    } else {
+      this.tidePanel.className = 'ui-panel tide-panel';
+      this.tideTimeText.textContent = `LOW TIDE (${formatted})`;
+    }
   }
 
-  public reset() {
-    this.score = 0;
-    this.currentXp = 0;
-    this.xpToNextLevel = 5;
-    this.playerLevel = 1;
-    this.hideGameOver();
-    this.upgradeModal.classList.remove('active');
+  public updateQuickSlots(
+    slots: { itemId: string | null; count: number }[],
+    activeIndex: number
+  ): void {
+    for (let i = 0; i < 5; i++) {
+      const el = this.quickSlots[i];
+      if (!el) continue;
+
+      if (i === activeIndex) {
+        el.classList.add('active');
+      } else {
+        el.classList.remove('active');
+      }
+
+      const item = slots[i];
+      const iconEl = el.querySelector('.slot-icon-container') as HTMLElement;
+      const countEl = el.querySelector('.slot-count') as HTMLElement;
+
+      if (item && item.itemId && ITEMS[item.itemId]) {
+        const def = ITEMS[item.itemId];
+        iconEl.innerHTML = getSvgIcon(def.icon, 24);
+        countEl.textContent = item.count > 1 ? item.count.toString() : '';
+      } else {
+        iconEl.innerHTML = '';
+        countEl.textContent = '';
+      }
+    }
+  }
+
+  public showInteractPrompt(text: string | null): void {
+    if (text) {
+      this.interactPrompt.style.display = 'block';
+      const t = this.interactPrompt.querySelector('#interact-text');
+      if (t) t.textContent = text;
+    } else {
+      this.interactPrompt.style.display = 'none';
+    }
   }
 }

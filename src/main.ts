@@ -1,253 +1,429 @@
 import * as THREE from 'three';
-import { InputSystem } from './systems/InputSystem';
+import { injectPaletteCSSVariables, PALETTE_COLORS } from './data/palette';
+import { GameLoop } from './core/GameLoop';
+import { InputManager } from './core/InputManager';
+import { CameraController } from './core/CameraController';
+import { SaveSystem } from './core/SaveSystem';
+import { Terrain } from './world/Terrain';
+import { Water } from './world/Water';
+import { TideSystem } from './world/TideSystem';
+import { Weather } from './world/Weather';
 import { Player } from './entities/Player';
-import { CameraSystem } from './systems/CameraSystem';
-import { TouchUI } from './ui/TouchUI';
-import { HUD } from './ui/HUD';
-import { DebugOverlay } from './ui/DebugOverlay';
-import { BulletPool } from './entities/Bullet';
-import { EnemyPool } from './entities/Enemy';
-import { PickupPool } from './entities/Pickup';
-import { ParticlePool } from './entities/Particle';
-import { WaveSystem } from './systems/WaveSystem';
+import { Raft } from './entities/Raft';
+import { Enemy } from './entities/Enemy';
+import { ResourceNode } from './entities/ResourceNode';
+import { AssetRegistry } from './entities/AssetRegistry';
+import { VitalsSystem } from './systems/VitalsSystem';
+import { InteractionSystem } from './systems/InteractionSystem';
+import { CraftingSystem } from './systems/CraftingSystem';
+import { BuildingSystem } from './systems/BuildingSystem';
 import { CombatSystem } from './systems/CombatSystem';
-import { CollisionSystem } from './systems/CollisionSystem';
-import { sound } from './audio/SoundSynth';
-import { Haptics } from './audio/Haptics';
+import { HUD } from './ui/HUD';
+import { TouchControls } from './ui/TouchControls';
+import { InventoryUI } from './ui/InventoryUI';
+import { BuildMenuUI } from './ui/BuildMenuUI';
+import { DebugOverlay } from './ui/DebugOverlay';
+import { SoundSynth } from './audio/SoundSynth';
+import { BUDGET_CONSTANTS } from './data/constants';
 
-// Initialize Three.js scene & renderer with capped pixelRatio
-const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
-const uiLayer = document.getElementById('ui-layer') as HTMLElement;
+async function bootstrap() {
+  injectPaletteCSSVariables();
+  await SaveSystem.init();
 
-const renderer = new THREE.WebGLRenderer({
-  canvas,
-  antialias: true,
-  powerPreference: 'high-performance',
-});
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // Create WebGL Renderer
+  const canvas = document.createElement('canvas');
+  canvas.id = 'game-canvas';
+  document.getElementById('app')?.appendChild(canvas);
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x060812);
-scene.fog = new THREE.FogExp2(0x060812, 0.015);
-
-// Camera System
-const cameraSystem = new CameraSystem(window.innerWidth / window.innerHeight);
-
-// Lighting: low-poly balanced illumination
-const hemiLight = new THREE.HemisphereLight(0x77aaff, 0x112233, 1.2);
-scene.add(hemiLight);
-
-const dirLight = new THREE.DirectionalLight(0x00f0ff, 1.8);
-dirLight.position.set(20, 40, 20);
-scene.add(dirLight);
-
-// Arena: Grid Floor & Boundary Perimeter
-const arenaSize = 54;
-const gridHelper = new THREE.GridHelper(arenaSize, 36, 0x00f0ff, 0x152238);
-gridHelper.position.y = 0.01;
-scene.add(gridHelper);
-
-const groundGeo = new THREE.PlaneGeometry(arenaSize, arenaSize);
-const groundMat = new THREE.MeshStandardMaterial({
-  color: 0x070b16,
-  roughness: 0.8,
-  metalness: 0.2,
-});
-const groundMesh = new THREE.Mesh(groundGeo, groundMat);
-groundMesh.rotation.x = -Math.PI / 2;
-scene.add(groundMesh);
-
-const boundaryLineGeo = new THREE.BufferGeometry();
-const half = arenaSize / 2;
-const boundaryPts = [
-  new THREE.Vector3(-half, 0.1, -half),
-  new THREE.Vector3(half, 0.1, -half),
-  new THREE.Vector3(half, 0.1, half),
-  new THREE.Vector3(-half, 0.1, half),
-  new THREE.Vector3(-half, 0.1, -half),
-];
-boundaryLineGeo.setFromPoints(boundaryPts);
-const boundaryLineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth: 2 });
-const boundaryLines = new THREE.Line(boundaryLineGeo, boundaryLineMat);
-scene.add(boundaryLines);
-
-// Entities & Instanced Object Pools (Zero per-frame allocations)
-const player = new Player();
-scene.add(player.mesh);
-
-const bulletPool = new BulletPool(scene, 120);
-const enemyPool = new EnemyPool(scene, 60);
-const pickupPool = new PickupPool(scene, 100);
-const particlePool = new ParticlePool(scene, 150);
-
-// Systems & UI
-const inputSystem = new InputSystem();
-const touchUI = new TouchUI(uiLayer, inputSystem);
-const hud = new HUD(uiLayer);
-const debugOverlay = new DebugOverlay(uiLayer);
-const waveSystem = new WaveSystem(enemyPool);
-const combatSystem = new CombatSystem();
-
-let isPaused = false;
-let isGameOver = false;
-let isChoosingUpgrade = false;
-
-// Callbacks
-touchUI.onResumeCallback = () => {
-  isPaused = false;
-};
-touchUI.onRestartCallback = () => {
-  restartGame();
-};
-
-hud.onRestartCallback = () => {
-  restartGame();
-};
-
-waveSystem.onWaveCompleteCallback = (completedWave: number) => {
-  isChoosingUpgrade = true;
-  hud.showUpgradeModal(player, () => {
-    isChoosingUpgrade = false;
-    waveSystem.startWave(completedWave + 1);
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    powerPreference: 'high-performance',
   });
-};
-
-function restartGame() {
-  player.reset();
-  bulletPool.deactivateAll();
-  enemyPool.deactivateAll();
-  pickupPool.deactivateAll();
-  particlePool.deactivateAll();
-  combatSystem.reset();
-  waveSystem.reset();
-  hud.reset();
-  isPaused = false;
-  isGameOver = false;
-  isChoosingUpgrade = false;
-  waveSystem.startWave(1);
-}
-
-// Start first wave
-waveSystem.startWave(1);
-
-// Window resize handling
-window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  cameraSystem.resize(w, h);
-  renderer.setSize(w, h);
+  renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-});
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-// Fixed Timestep Loop (60Hz)
-const fixedDelta = 1 / 60;
-let lastTime = performance.now();
-let accumulator = 0;
-let totalGameTime = 0;
+  const scene = new THREE.Scene();
 
-function gameLoop(currentTime: number) {
-  requestAnimationFrame(gameLoop);
+  // Directional Light (Sun/Moon - single real-time light)
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  dirLight.position.set(45, 60, 35);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.width = BUDGET_CONSTANTS.SHADOW_MAP_SIZE;
+  dirLight.shadow.mapSize.height = BUDGET_CONSTANTS.SHADOW_MAP_SIZE;
+  dirLight.shadow.camera.near = 10;
+  dirLight.shadow.camera.far = 120;
+  const d = BUDGET_CONSTANTS.SHADOW_MAX_DISTANCE;
+  dirLight.shadow.camera.left = -d;
+  dirLight.shadow.camera.right = d;
+  dirLight.shadow.camera.top = d;
+  dirLight.shadow.camera.bottom = -d;
+  scene.add(dirLight);
 
-  const frameTime = (currentTime - lastTime) / 1000;
-  lastTime = currentTime;
-
-  accumulator += Math.min(frameTime, 0.2);
-
-  // Pause toggle handling
-  if (inputSystem.consumePause() && !isGameOver && !isChoosingUpgrade) {
-    isPaused = touchUI.togglePause();
-  }
-
-  while (accumulator >= fixedDelta) {
-    if (!isPaused && !isGameOver && !isChoosingUpgrade) {
-      totalGameTime += fixedDelta;
-
-      // Update Desktop fallback
-      inputSystem.updateDesktopFallback();
-
-      // Dash check
-      if (inputSystem.consumeDash()) {
-        const dashed = player.triggerDash();
-        if (dashed) {
-          particlePool.burst(player.position.x, 0.4, player.position.z, 0xffea00, 8, 5);
-          sound.playDash();
-          Haptics.dash();
-          cameraSystem.addTrauma(0.2);
-        }
-      }
-
-      // Update Player
-      player.update(
-        fixedDelta,
-        inputSystem.moveVector,
-        inputSystem.aimVector,
-        inputSystem.isAiming
-      );
-
-      // Update Wave System
-      waveSystem.update(fixedDelta);
-
-      // Update Combat System (auto-fire, aim assist)
-      combatSystem.update(fixedDelta, player, inputSystem, bulletPool, enemyPool);
-
-      // Update Bullets
-      bulletPool.update(fixedDelta);
-
-      // Update Active Enemies
-      const enemies = enemyPool.pool;
-      for (let i = 0; i < enemies.length; i++) {
-        if (enemies[i].active) {
-          enemies[i].update(fixedDelta, player.position, totalGameTime);
-        }
-      }
-
-      // Update Pickups
-      pickupPool.update(fixedDelta, player.position, player.stats.pickupRadius, totalGameTime);
-
-      // Update Particles
-      particlePool.update(fixedDelta);
-
-      // Run Collisions
-      CollisionSystem.checkCollisions(
-        player,
-        bulletPool,
-        enemyPool,
-        pickupPool,
-        particlePool,
-        cameraSystem,
-        (scoreGain) => hud.addScore(scoreGain),
-        (xpGain) => hud.addXp(xpGain),
-        () => {
-          isGameOver = true;
-          hud.showGameOver(hud.score, waveSystem.currentWave);
-        }
-      );
-
-      // Update Camera & Shake
-      cameraSystem.update(fixedDelta, player.position);
-
-      // Update HUD
-      hud.update(player, waveSystem.currentWave);
-    }
-    accumulator -= fixedDelta;
-  }
-
-  // Update Touch UI joysticks & cooldowns
-  const dashCooldownRatio = player.dashCooldownTimer / player.stats.dashCooldown;
-  touchUI.update(inputSystem, dashCooldownRatio);
-
-  // Render Scene
-  renderer.render(scene, cameraSystem.camera);
-
-  // Debug overlay update (?debug)
-  debugOverlay.tick(
-    renderer,
-    enemyPool.getActiveCount(),
-    bulletPool.getActiveCount(),
-    pickupPool.getActiveCount(),
-    particlePool.getActiveCount()
+  // Hemisphere Light (Sky Coastal Mist, Ground Sun-Bleached Sand)
+  const hemiLight = new THREE.HemisphereLight(
+    PALETTE_COLORS.CoastalMist,
+    PALETTE_COLORS.SunBleachedSand,
+    0.8
   );
+  scene.add(hemiLight);
+
+  // Core Subsystems
+  const debugOverlay = new DebugOverlay();
+  const tideSystem = new TideSystem(scene, dirLight, hemiLight, debugOverlay.timescale);
+  const weather = new Weather(scene);
+  const terrain = new Terrain(scene);
+  const water = new Water(scene);
+  const player = new Player(scene);
+
+  const cameraController = new CameraController(window.innerWidth / window.innerHeight);
+  const inputManager = new InputManager();
+
+  const hud = new HUD();
+  const vitalsSystem = new VitalsSystem(hud);
+  const interactionSystem = new InteractionSystem(hud);
+  const craftingSystem = new CraftingSystem(hud);
+  const buildingSystem = new BuildingSystem(scene, craftingSystem, terrain);
+  const combatSystem = new CombatSystem();
+
+  new TouchControls(inputManager);
+  const inventoryUI = new InventoryUI(craftingSystem, vitalsSystem);
+  const buildMenuUI = new BuildMenuUI(buildingSystem);
+
+  // Crosshair element for aiming
+  const crosshair = document.createElement('div');
+  crosshair.className = 'crosshair';
+  document.getElementById('app')?.appendChild(crosshair);
+
+  // Spawning Initial World Entities
+  const assetReg = AssetRegistry.get();
+
+  // 1. Palm Trees
+  const treeCoords = [
+    [10, 8], [-12, 14], [18, -6], [-8, -12], [22, 10], [-18, 5]
+  ];
+  treeCoords.forEach(([x, z], i) => {
+    const y = terrain.getHeight(x, z);
+    const treeMesh = assetReg.createPalmTree();
+    scene.add(treeMesh);
+    interactionSystem.registerNode(
+      new ResourceNode(
+        `tree_${i}`,
+        'tree',
+        treeMesh,
+        new THREE.Vector3(x, y, z),
+        3,
+        [
+          { itemId: 'wood_log', count: 3 },
+          { itemId: 'palm_frond', count: 2 },
+          { itemId: 'coconut', count: 1 },
+        ]
+      )
+    );
+  });
+
+  // 2. Scrap Piles
+  const scrapCoords = [
+    [15, -15], [-16, -18], [25, 2], [-22, -8]
+  ];
+  scrapCoords.forEach(([x, z], i) => {
+    const y = terrain.getHeight(x, z);
+    const scrapMesh = assetReg.createScrapPile();
+    scene.add(scrapMesh);
+    interactionSystem.registerNode(
+      new ResourceNode(
+        `scrap_${i}`,
+        'scrap_pile',
+        scrapMesh,
+        new THREE.Vector3(x, y, z),
+        2,
+        [
+          { itemId: 'scrap_metal', count: 3 },
+          { itemId: 'bolts', count: 4 },
+        ]
+      )
+    );
+  });
+
+  // 3. Plastic Blue Barrels
+  const barrelCoords = [
+    [28, -20], [-25, 18], [8, -28]
+  ];
+  barrelCoords.forEach(([x, z], i) => {
+    const y = terrain.getHeight(x, z);
+    const barrelMesh = assetReg.createPlasticBarrel();
+    scene.add(barrelMesh);
+    interactionSystem.registerNode(
+      new ResourceNode(
+        `barrel_${i}`,
+        'plastic_barrel',
+        barrelMesh,
+        new THREE.Vector3(x, y, z),
+        1,
+        [
+          { itemId: 'plastic_barrel', count: 1 },
+          { itemId: 'rope', count: 1 },
+        ]
+      )
+    );
+  });
+
+  // 4. Sunken Shipping Containers (Low Tide Exposed)
+  const containerMeshRed = assetReg.createShippingContainer(false);
+  scene.add(containerMeshRed);
+  interactionSystem.registerNode(
+    new ResourceNode(
+      'container_red',
+      'shipping_container',
+      containerMeshRed,
+      new THREE.Vector3(38, 1.2, 10),
+      4,
+      [
+        { itemId: 'scrap_metal', count: 5 },
+        { itemId: 'cloth', count: 4 },
+      ],
+      true
+    )
+  );
+
+  const containerMeshBlue = assetReg.createShippingContainer(true);
+  scene.add(containerMeshBlue);
+  interactionSystem.registerNode(
+    new ResourceNode(
+      'container_blue',
+      'sunken_electronics',
+      containerMeshBlue,
+      new THREE.Vector3(-35, 1.0, -25),
+      4,
+      [
+        { itemId: 'copper_wire', count: 4 },
+        { itemId: 'circuit_board', count: 2 },
+        { itemId: 'battery', count: 1 },
+      ],
+      true
+    )
+  );
+
+  // 5. Enemies: Feral Hound and Tide Lurker
+  const hound = new Enemy('hound_1', 'hound', new THREE.Vector3(18, 0, 16), scene);
+  combatSystem.registerEnemy(hound);
+
+  const lurker = new Enemy('lurker_1', 'lurker', new THREE.Vector3(32, 0, -32), scene);
+  combatSystem.registerEnemy(lurker);
+
+  // 6. Modular Raft
+  const raft = new Raft(new THREE.Vector3(25, 0, -18), scene);
+
+  // Unlock Audio on first pointerdown
+  window.addEventListener(
+    'pointerdown',
+    () => {
+      SoundSynth.get().unlock();
+    },
+    { once: true }
+  );
+
+  // Resize handling
+  window.addEventListener('resize', () => {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    cameraController.camera.aspect = window.innerWidth / window.innerHeight;
+    cameraController.camera.updateProjectionMatrix();
+  });
+
+  // Main Fixed Timestep Loop
+  let accumulatedTime = 0;
+  let saveTimer = 0;
+  let wasWarning = false;
+
+  const gameLoop = new GameLoop(
+    (dt: number) => {
+      accumulatedTime += dt;
+      saveTimer += dt;
+
+      inputManager.update();
+
+      // Camera view toggle
+      if (inputManager.state.isFirstPersonTogglePressed) {
+        cameraController.toggleFirstPerson();
+        inputManager.state.isFirstPersonTogglePressed = false;
+      }
+
+      // Build menu toggle
+      if (inputManager.state.isBuildMenuTogglePressed) {
+        buildMenuUI.toggle();
+        inputManager.state.isBuildMenuTogglePressed = false;
+      }
+
+      // Inventory toggle
+      if (inputManager.state.isInventoryTogglePressed) {
+        inventoryUI.toggle();
+        inputManager.state.isInventoryTogglePressed = false;
+      }
+
+      // Quick slot selection
+      craftingSystem.setActiveQuickSlot(inputManager.state.activeQuickSlot);
+      player.equipItem(craftingSystem.getActiveItem());
+
+      // Rotate building
+      if (inputManager.state.isRotatePressed) {
+        buildingSystem.rotate90();
+        inputManager.state.isRotatePressed = false;
+      }
+
+      // Tide simulation
+      const tideState = tideSystem.update(dt);
+      hud.updateTide(tideState.phase, tideSystem.getTimeRemainingInPhase());
+
+      // Audio cue on warning phase enter
+      if (tideState.isWarning && !wasWarning) {
+        wasWarning = true;
+        SoundSynth.get().playThunder();
+        SoundSynth.get().playTideAlert();
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      } else if (!tideState.isWarning) {
+        wasWarning = false;
+      }
+
+      // Water update
+      water.update(accumulatedTime, tideState.waterLevel);
+
+      // Player update
+      const camYaw = cameraController.getYaw();
+      const { hasAttacked } = player.update(
+        dt,
+        inputManager.state,
+        camYaw,
+        terrain,
+        tideState.waterLevel,
+        vitalsSystem.vitals.stamina
+      );
+
+      // Vitals update
+      vitalsSystem.update(dt, {
+        isSprinting: inputManager.state.isSprinting,
+        isSwimming: player.isSwimming,
+        isInStorm: tideState.isHighTide,
+      });
+
+      // Raft update
+      const distToRaft = player.position.distanceTo(raft.position);
+      raft.isPlayerBoarded = distToRaft < 2.0;
+      raft.update(dt, accumulatedTime, tideState.waterLevel, {
+        moveX: inputManager.state.moveX,
+        moveZ: inputManager.state.moveZ,
+      });
+
+      // Weather update
+      weather.update(dt, tideState.stormIntensity, player.position);
+
+      // Interaction check
+      interactionSystem.update(player.position, tideState.phase === 'low' || tideState.phase === 'warning');
+
+      if (inputManager.state.isInteractPressed) {
+        const yields = interactionSystem.triggerInteract();
+        if (yields) {
+          for (const y of yields) {
+            craftingSystem.addItem(y.itemId, y.count);
+          }
+        }
+        inputManager.state.isInteractPressed = false;
+      }
+
+      // Building ghost update
+      const forward = cameraController.getForwardVector();
+      buildingSystem.update(player.position, forward);
+
+      // Combat update
+      combatSystem.update(player, forward);
+      if (combatSystem.targetLockedEnemy) {
+        crosshair.classList.add('target-locked');
+      } else {
+        crosshair.classList.remove('target-locked');
+      }
+
+      if (hasAttacked) {
+        if (buildingSystem.currentBlueprintId) {
+          buildingSystem.placeCurrent();
+        } else {
+          combatSystem.handlePlayerAttack(player);
+          if (navigator.vibrate) navigator.vibrate(40);
+        }
+      }
+
+      // Enemies update
+      hound.update(dt, player.position, terrain, tideState.waterLevel, (dmg) => {
+        vitalsSystem.takeDamage(dmg);
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      });
+
+      lurker.update(dt, player.position, terrain, tideState.waterLevel, (dmg) => {
+        vitalsSystem.takeDamage(dmg);
+        if (navigator.vibrate) navigator.vibrate(80);
+      });
+
+      // Death check: drop non-equipped inventory in floating salvage crate
+      if (vitalsSystem.vitals.isDead) {
+        const crateMesh = assetReg.createLootPickup('salvage_crate');
+        crateMesh.position.set(player.position.x, Math.max(player.position.y, tideState.waterLevel + 0.2), player.position.z);
+        scene.add(crateMesh);
+
+        // Clear non-equipped items
+        craftingSystem.inventory.forEach((slot, idx) => {
+          if (idx !== craftingSystem.activeQuickSlot) {
+            slot.itemId = null;
+            slot.count = 0;
+          }
+        });
+        craftingSystem.updateHUD();
+
+        // Respawn at starter island camp
+        player.position.set(0, 8, 12);
+        vitalsSystem.vitals.health = 100;
+        vitalsSystem.vitals.isDead = false;
+        vitalsSystem.updateHUD();
+      }
+
+      // Autosave every 20s
+      if (saveTimer >= 20.0) {
+        saveTimer = 0;
+        SaveSystem.save({
+          version: 1,
+          timestamp: Date.now(),
+          playerPos: [player.position.x, player.position.y, player.position.z],
+          vitals: vitalsSystem.vitals,
+          inventory: craftingSystem.inventory,
+          structures: buildingSystem.placedStructures,
+          timeInTideCycle: tideSystem.timeInCycle,
+        });
+      }
+    },
+    (_alpha: number) => {
+      // Camera drag & look-at
+      const { dx, dy } = inputManager.consumeCameraDelta();
+      cameraController.handleDrag(dx, dy);
+      cameraController.update(player.position, 1 / 60);
+
+      // Light target follows player for shadow fidelity within 40m
+      dirLight.target.position.set(player.position.x, player.position.y, player.position.z);
+      dirLight.target.updateMatrixWorld();
+
+      // Render Three.js Scene
+      renderer.render(scene, cameraController.camera);
+
+      // Debug overlay update
+      debugOverlay.update(
+        renderer,
+        tideSystem.state.phase,
+        tideSystem.timeInCycle,
+        tideSystem.state.waterLevel,
+        player.position
+      );
+    }
+  );
+
+  gameLoop.start();
 }
 
-requestAnimationFrame(gameLoop);
+window.addEventListener('DOMContentLoaded', bootstrap);

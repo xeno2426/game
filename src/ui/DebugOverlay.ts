@@ -1,71 +1,60 @@
-import * as THREE from 'three';
-
-export interface DebugMetrics {
-  fps: number;
-  frameTimeMs: number;
-  drawCalls: number;
-  triangles: number;
-  activeEnemies: number;
-  activeBullets: number;
-  activePickups: number;
-  activeParticles: number;
-}
+import type * as THREE from 'three';
 
 export class DebugOverlay {
-  private el: HTMLElement;
-  public enabled = false;
+  private el: HTMLElement | null = null;
+  public isEnabled = false;
+  public timescale = 1.0;
 
   private frameCount = 0;
-  private lastFpsUpdateTime = performance.now();
+  private lastFpsUpdate = 0;
   private currentFps = 60;
-  private currentFrameTime = 16.6;
 
-  constructor(container: HTMLElement) {
-    this.el = document.createElement('div');
-    this.el.id = 'debug-overlay';
+  constructor() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('debug')) {
+      this.isEnabled = true;
+      if (params.has('timescale')) {
+        const ts = parseFloat(params.get('timescale') || '1');
+        if (!isNaN(ts) && ts > 0) {
+          this.timescale = ts;
+        }
+      }
 
-    // Check ?debug query param or #debug hash
-    const searchParams = new URLSearchParams(window.location.search);
-    const hasDebug = searchParams.has('debug') || window.location.hash.includes('debug');
-
-    if (hasDebug) {
-      this.enabled = true;
-      this.el.style.display = 'block';
-    } else {
-      this.enabled = false;
-      this.el.style.display = 'none';
+      this.el = document.createElement('div');
+      this.el.className = 'debug-overlay';
+      document.getElementById('app')?.appendChild(this.el);
     }
-
-    container.appendChild(this.el);
   }
 
-  public tick(
+  public update(
     renderer: THREE.WebGLRenderer,
-    activeEnemies: number,
-    activeBullets: number,
-    activePickups: number,
-    activeParticles: number
-  ) {
-    if (!this.enabled) return;
+    tidePhase: string,
+    tideTime: number,
+    waterLevel: number,
+    playerPos: THREE.Vector3
+  ): void {
+    if (!this.isEnabled || !this.el) return;
 
     this.frameCount++;
     const now = performance.now();
-    const elapsed = now - this.lastFpsUpdateTime;
-
-    if (elapsed >= 250) {
-      this.currentFps = Math.round((this.frameCount * 1000) / elapsed);
-      this.currentFrameTime = Number((elapsed / this.frameCount).toFixed(1));
+    if (now - this.lastFpsUpdate >= 500) {
+      this.currentFps = Math.round((this.frameCount * 1000) / (now - this.lastFpsUpdate));
       this.frameCount = 0;
-      this.lastFpsUpdateTime = now;
-
-      const info = renderer.info;
-      this.el.innerHTML = `
-        <span style="color:#00f0ff; font-weight:bold;">[DEBUG MODE]</span><br>
-        FPS: <strong>${this.currentFps}</strong> (${this.currentFrameTime}ms)<br>
-        Draw Calls: <strong>${info.render.calls}</strong> &bull; Triangles: <strong>${info.render.triangles}</strong><br>
-        Enemies: <strong>${activeEnemies}</strong> &bull; Bullets: <strong>${activeBullets}</strong><br>
-        XP Gems: <strong>${activePickups}</strong> &bull; Particles: <strong>${activeParticles}</strong>
-      `;
+      this.lastFpsUpdate = now;
     }
+
+    const info = renderer.info;
+    const calls = info.render.calls;
+    const triangles = info.render.triangles;
+
+    this.el.innerHTML = `
+      <div><strong>TIDEBOUND DEBUG</strong> (x${this.timescale})</div>
+      <div>FPS: ${this.currentFps}</div>
+      <div>Draw Calls: ${calls} / 100 budget</div>
+      <div>Triangles: ${triangles.toLocaleString()} / 150k budget</div>
+      <div>Tide: ${tidePhase.toUpperCase()} (${Math.floor(tideTime)}s)</div>
+      <div>Water Y: ${waterLevel.toFixed(2)}m</div>
+      <div>Player: ${playerPos.x.toFixed(1)}, ${playerPos.y.toFixed(1)}, ${playerPos.z.toFixed(1)}</div>
+    `;
   }
 }

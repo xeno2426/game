@@ -1,69 +1,66 @@
-# Development Checklist & Upgrade Backlog
+# Development Checklist and Upgrade Backlog
 
-## Phase 1: Mobile-First Foundation & Controls
-- [x] Viewport setup: landscape lock, `touch-action: none`, prevent pull-to-refresh & pinch-zoom, safe-area insets
-- [x] Three.js 3D scene: arena bounds, grid ground, lighting, low-poly player cyber-ship
-- [x] Multi-touch pointer tracking system with distinct `pointerId` management
-- [x] Left dynamic virtual joystick (appears on touch down, smooth directional vector)
-- [x] Right virtual joystick (aim vector with light aim-assist lock onto nearest target, auto-fire trigger)
-- [x] Dash button with cooldown animation/radial indicator
-- [x] Pause button with safe-area padding and overlay
-- [x] Desktop fallback controls (WASD movement, mouse aim/fire, Space dash)
-- [x] Phase 1 verification: `npm run build`, test controls, git commit & push
+## Phase 1: Core Controller, Starter Island and Water
+- [x] Setup Vitest test runner and validation tests (no emojis, no inline hex colours)
+- [x] Define 30 palette tokens and build runtime 256x256 palette atlas canvas
+- [x] Procedural starter island with terrain vertex colours by height and slope
+- [x] Collision system against island heightfield and static AABBs (no external physics engine)
+- [x] Shared CPU/GPU vertex-wave water with depth-based foam via baked heightmap
+- [x] Third-person over-the-shoulder controller with first-person toggle for building
+- [x] Floating dynamic virtual joystick with outer-rim sprint on left screen half
+- [x] Right-half camera drag, context-sensitive interact, jump/dodge and attack buttons
+- [x] 5-slot quick bar anchored at bottom centre
+- [x] Procedural low-poly survivor character model with procedural movement animations
+- [x] Phase 1 verification: npm run build, npm test, commit and push
 
-## Phase 2: Gameplay Loop & Audio-Visual Polish
-- [x] Escalating wave director: wave timer, spawn intervals, wave clear detection
-- [x] 3 distinct enemy archetypes:
-  - [x] Chaser (Scout): medium speed, direct pursuit
-  - [x] Fast (Swarm): high speed, flanking/encircling
-  - [x] Tank (Brute): slow, high HP, heavy impact
-- [x] Bullet shooting system with collision detection and enemy damage flashing
-- [x] XP gem drops from defeated enemies, magnetic attraction toward player, level progression
-- [x] Inter-wave upgrade selection modal (choose 1 of 3 randomized perks)
-- [x] Procedural Web Audio synthesizer (laser shot, impact, explosion, dash whoosh, level-up chime)
-- [x] Trauma-based screen shake on hit/explosion
-- [x] Vibration haptics (`navigator.vibrate`) on firing, damage, and level-up
-- [x] HUD: health bar, wave counter, score, XP progress bar, persistent high score in `localStorage`
-- [x] Game-over screen with final score, new high score banner, and restart button
-- [x] Phase 2 verification: `npm run build`, git commit & push
+## Phase 2: Dynamic Tide and Weather System
+- [x] Scripted 15-minute tide cycle (10 min low tide, 1 min warning, 5 min high tide)
+- [x] Smooth water level lerp (recedes/rises 4-5 metres)
+- [x] Transition warning: audio cue (thunder and rising wind) and flashing Signal Crimson tide gauge
+- [x] Monsoon weather: storm fog pulling far-clip plane in, Coastal Mist to Storm Slate sky lerp
+- [x] Procedural rain particle system pooled during high tide
+- [x] Fast-forward debug support (?debug&timescale=N)
+- [x] Phase 2 verification: npm run build, npm test, commit and push
 
-## Phase 3: Performance, Zero-Allocations & Architecture
-- [x] Strict fixed-timestep loop (60 Hz) with delta accumulator and lag clamp
-- [x] Object pooling for Bullets, Enemies, XP gems, and Particle effects (zero dynamic allocations during gameplay)
-- [x] Low-poly primitives only with optimized materials (no external 3D model files)
-- [x] Capped device pixel ratio (`Math.min(window.devicePixelRatio, 2)`)
-- [x] FPS, draw-call, and entity count overlay enabled via `?debug` URL query parameter
-- [x] Clean modular code architecture (`src/systems/`, `src/entities/`, `src/ui/`, `src/audio/`)
-- [x] Tab visibility change handler (`visibilitychange`) to pause simulation and mute/suspend audio
-- [x] Phase 3 verification: `npm run build`, profile memory/FPS, git commit & push
+## Phase 3: Scavenging, Inventory, Crafting and Persistence
+- [x] Resource nodes: Trees (wood, fronds, coconuts), Scrap Piles (metal, bolts), Barrels (plastic, rope), Sunken Electronics (copper, circuits, batteries)
+- [x] Instanced scavenging and harvesting with hit feedback
+- [x] Droppable loot pickups with subtle Salvage Gold rim highlight
+- [x] 12-slot mobile inventory UI synchronized with 5-slot quick bar
+- [x] Crafting system for essential tools and survival items
+- [x] Asynchronous autosave and restore system via IndexedDB
+- [x] Phase 3 verification: npm run build, npm test, commit and push
 
-## Phase 4: Installable Progressive Web App (PWA)
-- [x] Integrate `vite-plugin-pwa`
-- [x] Configure web manifest (name, short_name, standalone display, landscape orientation, theme colors)
-- [x] Generate high-resolution icons and maskable icons (192x192, 512x512)
-- [x] Configure service worker caching strategy for complete offline play
-- [x] Test production build (`npm run build`) and serve via `npm run preview -- --host`
-- [x] Phase 4 verification: `npm run build`, verify PWA manifest in build, git commit & push
+## Phase 4: Vitals, Survival Stations and Snap-Grid Building
+- [x] 4-stat vital simulation (Health, Hydration, Hunger, Exposure) with GDD critical penalties
+- [x] Survival stations: Campfire (warmth, cooking, exposure drop) and Rain Collector (fresh water)
+- [x] Radial build menu for mobile touch selection
+- [x] Modular snap-grid building system (Foundation, Stilts, Wall, Doorframe, Roof, Raft Base)
+- [x] Sockets with magnetic snapping, 90-degree rotate, and translucent green/red ghost preview
+- [x] Elevated stilt bases to survive high tide
+- [x] Phase 4 verification: npm run build, npm test, commit and push
 
-## Phase 5: Capacitor Android & GitHub Actions CI/CD
-- [x] Install Capacitor dependencies (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android`)
-- [x] Configure `capacitor.config.ts` (appId `com.xeno2426.game`, app name, `webDir: 'dist'`, base `./`)
-- [x] Initialize Android native platform (`npx cap add android` and `npx cap sync`)
-- [x] Create GitHub Actions workflow `.github/workflows/build-android.yml`
-  - [x] Set up modern Node LTS
-  - [x] Set up JDK (Java 21 required by modern Gradle/Capacitor)
-  - [x] Run `npm ci` and `npm run build`
-  - [x] Run `npx cap sync`
-  - [x] Build Android debug APK (`./gradlew assembleDebug` in `android/`)
-  - [x] Upload APK as downloadable artifact (`actions/upload-artifact`)
-- [x] Phase 5 verification: `npm run build`, verify CI workflow syntax, git commit & push
+## Phase 5: Combat, Enemies, Raft, Audio and Polish
+- [x] Soft lock-on melee combat within 2 metres
+- [x] Ranged slingshot with auto-aim assist (crosshair turns red on enemy hitbox)
+- [x] Feral Hound (Muddy Ochre) with 1-second telegraph animation before lunge
+- [x] Tide Lurker (Kelp Dark with Bio Cyan eyes/fins) patrolling water and sunken scrap
+- [x] Modular raft with buoyant barrels sampled from wave function and sail steering
+- [x] Player death drops non-equipped items into floating salvage crate
+- [x] Procedural Web Audio sound pass (waves, wind, rain, thunder, tools, alerts)
+- [x] Mobile budgets enforcement (under 100 draw calls, under 150k triangles, 1 directional light, 1024 shadow map within 40m)
+- [x] ?debug overlay displaying FPS, draw calls, triangles, and tide phase via renderer.info
+- [x] Phase 5 verification: npm run build, npm test, commit and push
 
 ---
 
-## Upgrade Backlog (Top Enhancements)
-1. [ ] **More Enemy Types**: Add Exploder (kamikaze bomb with blast radius on death), Sniper (long-range telegraph laser), and Summoner (spawns mini-drones).
-2. [ ] **Weapon Upgrades & Synergies**: Add weapon evolution choices: Triple Spread Shot, Continuous Laser Beam, Ricochet Plasma Orbs, and Homing Missiles.
-3. [ ] **Special In-Game Pickups**: Spawn temporary combat power-ups: Nuke Smart-Bomb (clears screen), Invulnerability Shield Bubble, Super Magnet (absorbs all gems on map), and Slow-Mo Overdrive.
-4. [ ] **Boss Waves**: Every 5th wave spawns a gargantuan Boss Mech featuring multiple attack patterns (bullet hell spirals, charge rush, summon minions) and health phase changes.
-5. [ ] **Settings Menu & Audio Sliders**: Add pause menu configuration for Master/SFX/Music volume sliders, Haptic Feedback toggle, Graphics Quality selector (low-poly shadows vs flat), and Joystick Sensitivity.
-6. [ ] **Vessel Skins & Customization**: Unlockable player hull skins (Neon Cyber, Void Stealth, Golden Apex) and customizable projectile visual color trails.
+## Upgrade Backlog (GDD Mid-to-Late Game Features)
+- [ ] 1. Workbench Tier 2: Advanced crafting bench enabling metal tools, high-tier armor, and electrical components
+- [ ] 2. Machete: Fast high-damage melee weapon crafted with Gunmetal Grey steel and Aged Timber handle
+- [ ] 3. Recurve Bow: Silent medium-range weapon utilizing crafted arrows with feathered palm fronds
+- [ ] 4. Harpoon Gun: Heavy projectile launcher functional underwater for deep sea harvesting and hunting
+- [ ] 5. Diving Gear: Oxygen tank and flippers extending underwater dive duration during low tide
+- [ ] 6. Oil Rigs: Distant offshore industrial platforms housing elite electronics and hazardous exploration
+- [ ] 7. Power and Turrets: Solar panels, wind turbines, proximity power radius, floodlights, and automated base defense turrets
+- [ ] 8. Radio Tower Ending: Central archipelago broadcast tower restoration quest line for rescue boat escape
+- [ ] 9. Endless Survival Mode: Post-ending continuous escalating storm and lurker survival mode

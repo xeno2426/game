@@ -1,83 +1,95 @@
 import * as THREE from 'three';
-import { Player } from '../entities/Player';
-import { BulletPool } from '../entities/Bullet';
-import { EnemyPool } from '../entities/Enemy';
-import { InputSystem } from './InputSystem';
-import { sound } from '../audio/SoundSynth';
-import { Haptics } from '../audio/Haptics';
+import type { Enemy } from '../entities/Enemy';
+import type { Player } from '../entities/Player';
+import { COMBAT_CONSTANTS } from '../data/constants';
+import { SoundSynth } from '../audio/SoundSynth';
 
 export class CombatSystem {
-  private fireTimer = 0;
-  private alternateCannon = false;
+  public enemies: Enemy[] = [];
+  public targetLockedEnemy: Enemy | null = null;
 
-  // Scratch vector for zero GC
-  private static readonly _aimDir = new THREE.Vector3();
+  public registerEnemy(enemy: Enemy): void {
+    this.enemies.push(enemy);
+  }
 
-  public update(
-    dt: number,
-    player: Player,
-    input: InputSystem,
-    bulletPool: BulletPool,
-    enemyPool: EnemyPool
-  ) {
-    if (this.fireTimer > 0) {
-      this.fireTimer -= dt;
-    }
+  public update(player: Player, cameraForward: THREE.Vector3): void {
+    // Check auto-aim assist cone for slingshot
+    this.targetLockedEnemy = null;
+    let minAngle = (COMBAT_CONSTANTS.AIM_ASSIST_CONE_DEG * Math.PI) / 180;
 
-    if (player.hp <= 0) return;
+    for (const enemy of this.enemies) {
+      if (enemy.isDead) continue;
 
-    // Apply light aim assist towards nearest active enemy within aim cone
-    if (input.isAiming) {
-      input.applyAimAssist(player.position, enemyPool.pool, 0.45, 22);
-    }
+      const toEnemy = new THREE.Vector3().subVectors(enemy.position, player.position);
+      const dist = toEnemy.length();
 
-    // Auto-fire when aim stick is deflected or mouse is pressed
-    if (input.isFiring && this.fireTimer <= 0) {
-      this.fireTimer = 1 / player.stats.fireRate;
-
-      // Determine firing direction (use aim vector if available, otherwise player facing)
-      let dirX = 0;
-      let dirZ = -1;
-
-      if (input.isAiming && input.aimVector.lengthSq() > 0.05) {
-        dirX = input.aimVector.x;
-        dirZ = input.aimVector.y;
-      } else {
-        const facing = player.mesh.rotation.y;
-        dirX = -Math.sin(facing);
-        dirZ = -Math.cos(facing);
+      if (dist <= COMBAT_CONSTANTS.SLINGSHOT_RANGE) {
+        toEnemy.normalize();
+        const angle = cameraForward.angleTo(toEnemy);
+        if (angle < minAngle) {
+          minAngle = angle;
+          this.targetLockedEnemy = enemy;
+        }
       }
-
-      CombatSystem._aimDir.set(dirX, 0, dirZ).normalize();
-
-      // Alternate twin blasters
-      const cannonOffset = this.alternateCannon ? 0.75 : -0.75;
-      this.alternateCannon = !this.alternateCannon;
-
-      // Calculate right vector relative to aim direction
-      const rightX = -CombatSystem._aimDir.z;
-      const rightZ = CombatSystem._aimDir.x;
-
-      const spawnX = player.position.x + rightX * cannonOffset + CombatSystem._aimDir.x * 0.8;
-      const spawnZ = player.position.z + rightZ * cannonOffset + CombatSystem._aimDir.z * 0.8;
-
-      bulletPool.spawn(
-        spawnX,
-        0.4,
-        spawnZ,
-        CombatSystem._aimDir.x,
-        CombatSystem._aimDir.z,
-        player.stats.bulletSpeed,
-        player.stats.bulletDamage
-      );
-
-      sound.playShoot();
-      Haptics.shoot();
     }
   }
 
-  public reset() {
-    this.fireTimer = 0;
-    this.alternateCannon = false;
+  public handlePlayerAttack(player: Player): void {
+    if (player.currentEquippedItem === 'slingshot') {
+      this.fireSlingshot(player);
+    } else {
+      this.performMelee(player);
+    }
+  }
+
+  private performMelee(player: Player): void {
+    SoundSynth.get().playChop();
+
+    // Soft lock-on within 2 metres
+    let nearest: Enemy | null = null;
+    let minD: number = COMBAT_CONSTANTS.SOFT_LOCK_DISTANCE;
+
+    for (const enemy of this.enemies) {
+      if (enemy.isDead) continue;
+      const d = player.position.distanceTo(enemy.position);
+      if (d < minD) {
+        minD = d;
+        nearest = enemy;
+      }
+    }
+
+    if (nearest) {
+      // Soft lock: magnetize player rotation towards target
+      const toEnemy = new THREE.Vector3().subVectors(nearest.position, player.position);
+      player.rotationY = Math.atan2(toEnemy.x, toEnemy.z);
+
+      nearest.takeDamage(COMBAT_CONSTANTS.MELEE_DAMAGE);
+      SoundSynth.get().playMetalHit();
+    }
+  }
+
+  private fireSlingshot(player: Player): void {
+    SoundSynth.get().playChop();
+
+    // If locked target exists, deal damage to it
+    if (this.targetLockedEnemy && !this.targetLockedEnemy.isDead) {
+      this.targetLockedEnemy.takeDamage(COMBAT_CONSTANTS.SLINGSHOT_DAMAGE);
+      SoundSynth.get().playMetalHit();
+    } else {
+      // Find closest enemy in forward direction
+      const pForward = new THREE.Vector3(-Math.sin(player.rotationY), 0, -Math.cos(player.rotationY));
+      for (const enemy of this.enemies) {
+        if (enemy.isDead) continue;
+        const toEnemy = new THREE.Vector3().subVectors(enemy.position, player.position);
+        if (toEnemy.length() <= COMBAT_CONSTANTS.SLINGSHOT_RANGE) {
+          toEnemy.normalize();
+          if (pForward.angleTo(toEnemy) < 0.4) {
+            enemy.takeDamage(COMBAT_CONSTANTS.SLINGSHOT_DAMAGE);
+            SoundSynth.get().playMetalHit();
+            break;
+          }
+        }
+      }
+    }
   }
 }

@@ -1,0 +1,99 @@
+export const TIDE_CONSTANTS = {
+  CYCLE_DURATION_SEC: 900, // 15 real-time minutes
+  LOW_TIDE_DURATION_SEC: 600, // 10 minutes
+  WARNING_DURATION_SEC: 60, // Final 1 minute of low tide
+  HIGH_TIDE_DURATION_SEC: 300, // 5 minutes
+  WARNING_START_SEC: 540, // 9 minutes in
+  WATER_LEVEL_LOW: 0.0,
+  WATER_LEVEL_HIGH: 4.5, // 4-5 metres rise
+  TRANSITION_LERP_SEC: 30.0,
+} as const;
+
+export const VITALS_CONSTANTS = {
+  MAX_HEALTH: 100,
+  MAX_HYDRATION: 100,
+  MAX_HUNGER: 100,
+  MAX_EXPOSURE: 100,
+  MAX_STAMINA: 100,
+
+  HYDRATION_DRAIN_IDLE: 0.05, // per second
+  HYDRATION_DRAIN_SPRINT: 0.15,
+  HUNGER_DRAIN_IDLE: 0.04,
+  HUNGER_DRAIN_ACTION: 0.09,
+
+  EXPOSURE_RISE_STORM: 2.2, // per second during monsoon
+  EXPOSURE_RISE_SWIM: 3.5, // per second while swimming
+  EXPOSURE_DROP_CAMPFIRE: 3.0, // per second near fire
+  EXPOSURE_DROP_ROOF: 1.5, // per second under roof
+
+  CRITICAL_DAMAGE_PER_SEC: 1.0,
+  PASSIVE_HEALTH_REGEN_PER_SEC: 0.5,
+  STAMINA_REGEN_PER_SEC: 20.0,
+  STAMINA_SPRINT_DRAIN_PER_SEC: 16.0,
+  STAMINA_DODGE_COST: 25.0,
+} as const;
+
+export const MOVEMENT_CONSTANTS = {
+  WALK_SPEED: 4.5,
+  SPRINT_SPEED: 7.5,
+  SWIM_SPEED: 3.2,
+  DODGE_SPEED: 12.0,
+  DODGE_DURATION: 0.35,
+  GRAVITY: 18.0,
+  JUMP_VELOCITY: 6.5,
+  PLAYER_RADIUS: 0.5,
+  PLAYER_HEIGHT: 1.8,
+} as const;
+
+export const COMBAT_CONSTANTS = {
+  SOFT_LOCK_DISTANCE: 2.0, // Melee soft lock within 2 metres
+  MELEE_DAMAGE: 25,
+  MELEE_COOLDOWN_SEC: 0.5,
+  SLINGSHOT_RANGE: 15.0,
+  SLINGSHOT_DAMAGE: 30,
+  SLINGSHOT_COOLDOWN_SEC: 1.0,
+  AIM_ASSIST_CONE_DEG: 25.0, // Angle within which crosshair snaps to target
+} as const;
+
+export const ENEMY_CONSTANTS = {
+  HOUND_HP: 60,
+  HOUND_SPEED: 4.2,
+  HOUND_TELEGRAPH_SEC: 1.0, // 1-second telegraph animation before lunge
+  HOUND_LUNGE_SPEED: 9.5,
+  HOUND_LUNGE_DURATION: 0.5,
+  HOUND_DAMAGE: 20,
+  HOUND_ATTACK_RANGE: 2.5,
+
+  LURKER_HP: 100,
+  LURKER_SWIM_SPEED: 5.2,
+  LURKER_DAMAGE: 30,
+  LURKER_AGGRO_RANGE: 14.0,
+  LURKER_ATTACK_RANGE: 2.2,
+} as const;
+
+export const BUILDING_CONSTANTS = {
+  GRID_SIZE: 3.0,
+  WALL_HEIGHT: 3.0,
+  STILT_HEIGHT: 3.0,
+  ROTATION_STEP_RAD: Math.PI / 2, // 90 degree increments
+  SOCKET_SNAP_RADIUS: 1.2,
+  BUILD_REACH_DISTANCE: 8.0,
+} as const;
+
+export const RAFT_CONSTANTS = {
+  BARREL_BUOYANCY_FORCE: 18.0,
+  MAX_SAIL_SPEED: 6.0,
+  TURN_SPEED_RAD: 1.5,
+  DAMPING: 0.95,
+} as const;
+
+export const BUDGET_CONSTANTS = {
+  MAX_DRAW_CALLS: 100,
+  MAX_TRIANGLES: 150000,
+  SHADOW_MAX_DISTANCE: 40.0,
+  SHADOW_MAP_SIZE: 1024,
+  CLEAR_FOG_NEAR: 40.0,
+  CLEAR_FOG_FAR: 160.0,
+  STORM_FOG_NEAR: 10.0,
+  STORM_FOG_FAR: 55.0, // Storm fog pulls far plane in
+} as const;

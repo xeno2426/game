@@ -1,0 +1,174 @@
+import * as THREE from 'three';
+import { BLUEPRINTS } from '../data/blueprints';
+import { BUILDING_CONSTANTS } from '../data/constants';
+import { AssetRegistry } from '../entities/AssetRegistry';
+import { PALETTE_COLORS } from '../data/palette';
+import { findBestSnapSocket, type PlacedStructure } from '../../tests/building.test';
+import type { CraftingSystem } from './CraftingSystem';
+import type { Terrain } from '../world/Terrain';
+
+export class BuildingSystem {
+  private scene: THREE.Scene;
+  private craftingSystem: CraftingSystem;
+  private terrain: Terrain;
+
+  public placedStructures: PlacedStructure[] = [];
+  public currentBlueprintId: string | null = null;
+  public currentRotationY = 0; // 0, PI/2, PI, 3*PI/2
+
+  private ghostObject: THREE.Object3D | null = null;
+  private ghostMaterialValid: THREE.MeshBasicMaterial;
+  private ghostMaterialInvalid: THREE.MeshBasicMaterial;
+
+  public ghostPosition = new THREE.Vector3();
+  public isValidPlacement = false;
+
+  constructor(scene: THREE.Scene, craftingSystem: CraftingSystem, terrain: Terrain) {
+    this.scene = scene;
+    this.craftingSystem = craftingSystem;
+    this.terrain = terrain;
+
+    this.ghostMaterialValid = new THREE.MeshBasicMaterial({
+      color: PALETTE_COLORS.CircuitGreen,
+      transparent: true,
+      opacity: 0.55,
+      wireframe: true,
+    });
+
+    this.ghostMaterialInvalid = new THREE.MeshBasicMaterial({
+      color: PALETTE_COLORS.CoralRed,
+      transparent: true,
+      opacity: 0.55,
+      wireframe: true,
+    });
+  }
+
+  public selectBlueprint(blueprintId: string | null): void {
+    if (this.currentBlueprintId === blueprintId) return;
+
+    this.currentBlueprintId = blueprintId;
+    if (this.ghostObject) {
+      this.scene.remove(this.ghostObject);
+      this.ghostObject = null;
+    }
+
+    if (!blueprintId || !BLUEPRINTS[blueprintId]) return;
+
+    this.ghostObject = this.createStructureMesh(blueprintId);
+    this.applyGhostMaterial(this.ghostObject, this.ghostMaterialValid);
+    this.scene.add(this.ghostObject);
+  }
+
+  public rotate90(): void {
+    this.currentRotationY = (this.currentRotationY + BUILDING_CONSTANTS.ROTATION_STEP_RAD) % (Math.PI * 2);
+  }
+
+  public update(playerPos: THREE.Vector3, forwardDir: THREE.Vector3): void {
+    if (!this.currentBlueprintId || !this.ghostObject) return;
+
+    const bp = BLUEPRINTS[this.currentBlueprintId];
+    if (!bp) return;
+
+    // Aim position ~4.5m ahead of player
+    const aimX = playerPos.x + forwardDir.x * 4.5;
+    const aimZ = playerPos.z + forwardDir.z * 4.5;
+    const terrainY = this.terrain.getHeight(aimX, aimZ);
+
+    const aimPos: [number, number, number] = [aimX, terrainY, aimZ];
+
+    // Check snap to nearest placed structure socket
+    const snap = findBestSnapSocket(this.placedStructures, aimPos, this.currentBlueprintId);
+
+    if (snap) {
+      this.ghostPosition.set(snap.socketWorldPos[0], snap.socketWorldPos[1], snap.socketWorldPos[2]);
+    } else {
+      // Snap to grid on terrain
+      const gx = Math.round(aimX / BUILDING_CONSTANTS.GRID_SIZE) * BUILDING_CONSTANTS.GRID_SIZE;
+      const gz = Math.round(aimZ / BUILDING_CONSTANTS.GRID_SIZE) * BUILDING_CONSTANTS.GRID_SIZE;
+      const gy = this.terrain.getHeight(gx, gz);
+      this.ghostPosition.set(gx, gy, gz);
+    }
+
+    this.ghostObject.position.copy(this.ghostPosition);
+    this.ghostObject.rotation.y = this.currentRotationY;
+
+    // Check if player has required resources
+    let hasResources = true;
+    for (const cost of bp.cost) {
+      const hasCount = this.craftingSystem.inventory.reduce((acc, s) => {
+        return s.itemId === cost.itemId ? acc + s.count : acc;
+      }, 0);
+      if (hasCount < cost.count) {
+        hasResources = false;
+        break;
+      }
+    }
+
+    this.isValidPlacement = hasResources;
+    this.applyGhostMaterial(
+      this.ghostObject,
+      this.isValidPlacement ? this.ghostMaterialValid : this.ghostMaterialInvalid
+    );
+  }
+
+  public placeCurrent(): boolean {
+    if (!this.currentBlueprintId || !this.isValidPlacement) return false;
+
+    const bp = BLUEPRINTS[this.currentBlueprintId];
+    if (!bp) return false;
+
+    // Deduct cost
+    for (const cost of bp.cost) {
+      let remaining = cost.count;
+      for (const slot of this.craftingSystem.inventory) {
+        if (slot.itemId === cost.itemId) {
+          const take = Math.min(slot.count, remaining);
+          slot.count -= take;
+          remaining -= take;
+          if (slot.count === 0) slot.itemId = null;
+          if (remaining <= 0) break;
+        }
+      }
+    }
+    this.craftingSystem.updateHUD();
+
+    // Spawn permanent structure mesh
+    const structMesh = this.createStructureMesh(this.currentBlueprintId);
+    structMesh.position.copy(this.ghostPosition);
+    structMesh.rotation.y = this.currentRotationY;
+    this.scene.add(structMesh);
+
+    const placed: PlacedStructure = {
+      id: `struct_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      blueprintId: this.currentBlueprintId,
+      position: [this.ghostPosition.x, this.ghostPosition.y, this.ghostPosition.z],
+      rotationY: this.currentRotationY,
+    };
+    this.placedStructures.push(placed);
+
+    return true;
+  }
+
+  private createStructureMesh(blueprintId: string): THREE.Object3D {
+    const registry = AssetRegistry.get();
+    switch (blueprintId) {
+      case 'foundation': return registry.createFoundationMesh();
+      case 'stilts': return registry.createStiltsMesh();
+      case 'wall': return registry.createWallMesh();
+      case 'doorframe': return registry.createDoorframeMesh();
+      case 'roof': return registry.createRoofMesh();
+      case 'campfire': return registry.createCampfire();
+      case 'rain_collector': return registry.createRainCollector();
+      case 'raft_base': return registry.createRaft();
+      default: return registry.createFoundationMesh();
+    }
+  }
+
+  private applyGhostMaterial(obj: THREE.Object3D, mat: THREE.Material): void {
+    obj.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        (child as THREE.Mesh).material = mat;
+      }
+    });
+  }
+}
