@@ -42,18 +42,42 @@ describe('SaveSystem and State Persistence', () => {
     expect(validateAndMigrateSave(null)).toBeNull();
     expect(validateAndMigrateSave(undefined)).toBeNull();
     expect(validateAndMigrateSave('invalid-string')).toBeNull();
-    expect(validateAndMigrateSave({ version: 0 })).toBeNull(); // older version
-    expect(validateAndMigrateSave({ version: 2 })).toBeNull(); // unsupported future version
-    expect(validateAndMigrateSave({ version: 1, playerPos: [0, 0] })).toBeNull(); // corrupt pos
+    expect(validateAndMigrateSave({ version: 0 })).toBeNull(); // older unsupported version
+    expect(validateAndMigrateSave({ version: 99 })).toBeNull(); // unsupported future version
+    expect(validateAndMigrateSave({ version: 2, playerPos: [0, 0] })).toBeNull(); // corrupt pos
+  });
+
+  it('should safely migrate version 1 saves to version 2', () => {
+    const v1Save = {
+      version: 1,
+      timestamp: 1000,
+      playerPos: [0, 8, 12],
+      vitals: {
+        health: 90,
+        hydration: 80,
+        hunger: 70,
+        exposure: 5,
+        stamina: 95,
+        isDead: false,
+      },
+      inventory: [{ itemId: 'scrap_axe', count: 1 }],
+      structures: [],
+      timeInTideCycle: 150,
+    };
+    const migrated = validateAndMigrateSave(v1Save);
+    expect(migrated).not.toBeNull();
+    expect(migrated?.version).toBe(2);
+    expect(migrated?.playerPos).toEqual([-820, 6.0, 820]);
+    expect(migrated?.vitals.health).toBe(90);
   });
 
   it('should successfully round-trip save and load valid game state', async () => {
     await SaveSystem.init();
 
     const mockState: SavedGameState = {
-      version: 1,
+      version: 2,
       timestamp: Date.now(),
-      playerPos: [10, 5, -12],
+      playerPos: [-800, 5, 800],
       vitals: {
         health: 85,
         hydration: 70,
@@ -83,8 +107,8 @@ describe('SaveSystem and State Persistence', () => {
 
     const loaded = await SaveSystem.load();
     expect(loaded).not.toBeNull();
-    expect(loaded?.version).toBe(1);
-    expect(loaded?.playerPos).toEqual([10, 5, -12]);
+    expect(loaded?.version).toBe(2);
+    expect(loaded?.playerPos).toEqual([-800, 5, 800]);
     expect(loaded?.vitals.health).toBe(85);
     expect(loaded?.structures.length).toBe(1);
   });

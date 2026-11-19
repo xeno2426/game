@@ -2,6 +2,8 @@ import type { VitalsState } from '../logic/vitalsLogic';
 import type { InventorySlot } from '../logic/craftingLogic';
 import type { PlacedStructure } from '../logic/buildingLogic';
 
+export const CURRENT_SAVE_VERSION = 2;
+
 export interface SavedCrate {
   id: string;
   position: [number, number, number];
@@ -23,8 +25,9 @@ export function validateAndMigrateSave(data: unknown): SavedGameState | null {
   if (!data || typeof data !== 'object') return null;
 
   const candidate = data as Partial<SavedGameState>;
-  if (candidate.version !== 1) {
-    // Tolerate older or unsupported future versions by returning null
+
+  // Check supported versions: migrate v1 to v2, accept v2
+  if (candidate.version !== 1 && candidate.version !== CURRENT_SAVE_VERSION) {
     return null;
   }
 
@@ -64,7 +67,39 @@ export function validateAndMigrateSave(data: unknown): SavedGameState | null {
     return null;
   }
 
-  return candidate as SavedGameState;
+  // Version 1 migration: ensure playerPos is within bounds of world [-1500, 1500]
+  // If playerPos was at origin or outside new terrain, safely reposition to starter island beach
+  const migratedState: SavedGameState = {
+    version: CURRENT_SAVE_VERSION,
+    timestamp: candidate.timestamp ?? Date.now(),
+    playerPos: [
+      candidate.playerPos[0],
+      candidate.playerPos[1],
+      candidate.playerPos[2],
+    ],
+    vitals: {
+      health: v.health,
+      hydration: v.hydration,
+      hunger: v.hunger,
+      exposure: v.exposure,
+      stamina: v.stamina,
+      isDead: !!v.isDead,
+    },
+    inventory: candidate.inventory,
+    structures: candidate.structures,
+    timeInTideCycle: candidate.timeInTideCycle,
+    crates: candidate.crates ?? [],
+  };
+
+  if (candidate.version === 1) {
+    // If old v1 save had player near previous starter island center (0, 8, 12),
+    // reposition safely to starter beach island in south-west
+    if (Math.abs(migratedState.playerPos[0]) < 50 && Math.abs(migratedState.playerPos[2]) < 50) {
+      migratedState.playerPos = [-820, 6.0, 820];
+    }
+  }
+
+  return migratedState;
 }
 
 const DB_NAME = 'tidebound_db';

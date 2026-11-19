@@ -183,3 +183,61 @@
 - [ ] 7. Power and Turrets: Solar panels, wind turbines, proximity power radius, floodlights, and automated base defense turrets
 - [ ] 8. Radio Tower Ending: Central archipelago broadcast tower restoration quest line for rescue boat escape
 - [ ] 9. Endless Survival Mode: Post-ending continuous escalating storm and lurker survival mode
+
+---
+
+## World Expansion and Streaming Pass (Groups A through E)
+
+### Group A: World Data and Biome Generation
+- [x] A1. Bump save version to 2 in src/core/SaveSystem.ts and ensure version 1 saves migrate safely or reset cleanly
+- [x] A2. Create src/data/biomes.ts with typed biomes, palette colors, height/slope limits, and spawn tables
+- [x] A3. Implement pure world generation logic in src/logic/worldLogic.ts (3000x3000m, 1024x1024 heightmap & biome map, 14-20 islands, 25-35% land, starter island SW, radio tower centre, industrial harbour NE, oil rigs deep north, shallow shelves & deep ocean, dry hills >4.5m)
+- [x] A4. Create Web Worker in src/world/WorldWorker.ts and IndexedDB caching in src/world/WorldGen.ts behind an SVG loading bar
+- [x] A5. Implement O(1) bilinear lookups for getHeight(x, z) and getBiome(x, z) with subtle detail noise
+- [x] A6. Soft vertex blending across biomes without hard seams
+- [x] A7. Unit tests in tests/worldGen.test.ts (deterministic seed, >=4% land per biome, starter island composition, bilinear vs direct height validation)
+- [x] A8. Group A verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
+
+### Group B: Streaming Terrain and Dynamic Depth Water
+- [ ] B1. Create chunked terrain system in src/world/TerrainChunks.ts with 64m chunks and distance-based LOD (LOD0 32x32 <160m, LOD1 16x16 <400m, LOD2 8x8 <900m, culled >900m)
+- [ ] B2. Chunk skirts (3.5m drop on perimeter edges) to eliminate seams between differing LODs
+- [ ] B3. Pre-allocated chunk mesh and geometry pool to ensure zero runtime allocations during streaming
+- [ ] B4. Throttle chunk geometry updates to at most 1 per frame to eliminate frame-time spikes
+- [ ] B5. Create 1024x1024 DataTexture from baked heightmap and update Water.ts shader to sample dynamic depth, shore foam, and crest foam
+- [ ] B6. Adjust clear-weather fog far plane to 450m while retaining storm fog (near 10, far 55)
+- [ ] B7. Unit tests in tests/streamingTerrain.test.ts (chunk coordinate maths, LOD distance thresholds, pool reuse)
+- [ ] B8. Group B verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
+
+### Group C: Props, Spawning, Landmarks and Navigation
+- [ ] C1. Delete hard-coded prop coordinates in main.ts and implement seeded jittered grid prop scattering per chunk
+- [ ] C2. Batch repeated props into InstancedMesh per chunk (palms, rocks, barrels, scrap piles)
+- [ ] C3. 2D spatial hash grid for resource nodes allowing O(1) proximity queries within 4m in InteractionSystem
+- [ ] C4. Deterministic node harvesting tracking with respawn after 3 tide cycles (2700s)
+- [ ] C5. Biome-based enemy spawning (hounds on land, lurkers in swamps/deep water, wake <120m, sleep/despawn >200m, max 6 active)
+- [ ] C6. Fixed landmark placement (harbour cranes, wrecked tanker, radio tower, oil rigs)
+- [ ] C7. Player spawn on south-west beach, respawn at nearest campfire/shelter or starter camp
+- [ ] C8. World map modal (SVG button in HUD, 512x512 pre-rendered biome canvas, player heading arrow)
+- [ ] C9. HUD compass strip with cardinal directions and landmark icons
+- [ ] C10. Teleport shortcuts in ?debug overlay for all biomes and landmarks
+- [ ] C11. Tune RAFT_CONSTANTS MAX_SAIL_SPEED to 10.0 m/s for 5-minute map crossing and record in tasks/planning.md
+- [ ] C12. Unit tests in tests/propsAndSpawning.test.ts (spatial hash grid, respawn timing, landmark coords, raft speed)
+- [ ] C13. Group C verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
+
+### Group D: GLB Asset Pipeline and CC0 Models
+- [ ] D1. Add GLTFLoader and SkeletonUtils imports in src/entities/AssetRegistry.ts
+- [ ] D2. Create public/models directory and src/data/assetManifest.ts
+- [ ] D3. Download CC0 low-poly model packs (Kenney / Quaternius) covering trees, rocks, containers, barrels, tools, hound, survivor, lurker
+- [ ] D4. Document every asset in docs/ASSETS.md with file, source URL, author, CC0 license, and date
+- [ ] D5. Recolor GLB materials at load time to nearest palette tokens with MeshLambertMaterial and no neon colors
+- [ ] D6. Implement automatic fallback to procedural models if GLB is missing or fails to load
+- [ ] D7. Enforce triangle budgets (<800 tree, <300 rock, <3000 character) and file sizes (<250KB per file, <15MB total)
+- [ ] D8. Add .glb to Vite PWA workbox globPatterns and verify Capacitor compatibility
+- [ ] D9. Unit tests in tests/assetManifest.test.ts (manifest file existence, polycount budgets, ASSETS.md completeness, linter tests pass)
+- [ ] D10. Group D verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
+
+### Group E: Verification, Performance Profiling and Final Report
+- [ ] E1. Run npx tsc --noEmit, npm run build, and npm test
+- [ ] E2. Start npm run dev -- --host and curl test
+- [ ] E3. Profile draw calls and triangle counts at spawn, mid-map, and harbour island (<100 draw calls, <150k tris)
+- [ ] E4. Update tasks/todo.md with complete regression checklist
+- [ ] E5. Output final summary table of changes, files, and tests
