@@ -16,6 +16,8 @@ export class Player {
   public isDodging = false;
   public dodgeTimer = 0;
   public attackTimer = 0;
+  public coyoteTimer = 0.1;
+  public jumpBufferTimer = 0;
 
   public currentEquippedItem: string | null = 'scrap_axe';
   private equippedMesh: THREE.Object3D | null = null;
@@ -26,6 +28,7 @@ export class Player {
 
   // Scratch vectors for zero allocation
   private _moveDir = new THREE.Vector3();
+  private _dodgeDir = new THREE.Vector3();
   private _forward = new THREE.Vector3();
   private _right = new THREE.Vector3();
 
@@ -103,22 +106,7 @@ export class Player {
       return { staminaCost: 0, dodgeCost: 0, hasAttacked };
     }
 
-    // Dodge action
-    if (input.isJumpPressed && !this.isDodging && this.isGrounded && stamina >= VITALS_CONSTANTS.STAMINA_DODGE_COST) {
-      this.isDodging = true;
-      this.dodgeTimer = MOVEMENT_CONSTANTS.DODGE_DURATION;
-      dodgeCost = VITALS_CONSTANTS.STAMINA_DODGE_COST;
-      staminaCost += VITALS_CONSTANTS.STAMINA_DODGE_COST;
-    }
-
-    if (this.isDodging) {
-      this.dodgeTimer -= dt;
-      if (this.dodgeTimer <= 0) {
-        this.isDodging = false;
-      }
-    }
-
-    // Camera relative movement
+    // Camera relative movement vectors
     this._forward.set(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw)).normalize();
     this._right.set(Math.cos(cameraYaw), 0, -Math.sin(cameraYaw)).normalize();
 
@@ -135,6 +123,56 @@ export class Player {
     const terrainH = terrain.getHeight(this.position.x, this.position.z);
     this.isSwimming = this.position.y < waterLevel - 0.4;
 
+    // Coyote timer for jumping (0.1s tolerance after leaving ground)
+    if (this.isGrounded && !this.isSwimming) {
+      this.coyoteTimer = 0.1;
+    } else {
+      this.coyoteTimer = Math.max(0, this.coyoteTimer - dt);
+    }
+
+    // Jump input buffer (0.12s buffer window)
+    if (input.isJumpPressed) {
+      this.jumpBufferTimer = 0.12;
+      input.isJumpPressed = false;
+    }
+
+    // Jump execution
+    if (this.jumpBufferTimer > 0) {
+      if (this.coyoteTimer > 0 && !this.isSwimming && !this.isDodging) {
+        this.velocity.y = MOVEMENT_CONSTANTS.JUMP_VELOCITY;
+        this.isGrounded = false;
+        this.coyoteTimer = 0;
+        this.jumpBufferTimer = 0;
+      } else {
+        this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
+      }
+    }
+
+    // Dodge action: dodges along movement direction, backwards when standing still
+    if (input.isDodgePressed) {
+      if (!this.isDodging && this.isGrounded && !this.isSwimming && stamina >= VITALS_CONSTANTS.STAMINA_DODGE_COST) {
+        this.isDodging = true;
+        this.dodgeTimer = MOVEMENT_CONSTANTS.DODGE_DURATION;
+        dodgeCost = VITALS_CONSTANTS.STAMINA_DODGE_COST;
+        staminaCost += VITALS_CONSTANTS.STAMINA_DODGE_COST;
+
+        if (inputLen > 0.05) {
+          this._dodgeDir.copy(this._moveDir).normalize();
+        } else {
+          // Standing still: dodge backwards along player facing direction
+          this._dodgeDir.set(Math.sin(this.rotationY), 0, Math.cos(this.rotationY)).normalize();
+        }
+      }
+      input.isDodgePressed = false;
+    }
+
+    if (this.isDodging) {
+      this.dodgeTimer -= dt;
+      if (this.dodgeTimer <= 0) {
+        this.isDodging = false;
+      }
+    }
+
     // Movement speed resolution
     let targetSpeed = 0;
     if (this.isDodging) {
@@ -149,7 +187,10 @@ export class Player {
     }
 
     // Update horizontal position
-    if (inputLen > 0.05 || this.isDodging) {
+    if (this.isDodging) {
+      this.position.x += this._dodgeDir.x * MOVEMENT_CONSTANTS.DODGE_SPEED * dt;
+      this.position.z += this._dodgeDir.z * MOVEMENT_CONSTANTS.DODGE_SPEED * dt;
+    } else if (inputLen > 0.05) {
       this.position.x += this._moveDir.x * targetSpeed * dt;
       this.position.z += this._moveDir.z * targetSpeed * dt;
 

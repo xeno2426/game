@@ -109,10 +109,15 @@ function adjustBrightness(hex: string, factor: number): string {
   return `rgb(${nr}, ${ng}, ${nb})`;
 }
 
-let cachedAtlasTexture: THREE.CanvasTexture | null = null;
+let cachedAtlasTexture: THREE.Texture | null = null;
 
-export function getPaletteAtlasTexture(): THREE.CanvasTexture {
+export function getPaletteAtlasTexture(): THREE.Texture {
   if (cachedAtlasTexture) {
+    return cachedAtlasTexture;
+  }
+
+  if (typeof document === 'undefined') {
+    cachedAtlasTexture = new THREE.DataTexture(new Uint8Array([51, 68, 82, 255]), 1, 1);
     return cachedAtlasTexture;
   }
 

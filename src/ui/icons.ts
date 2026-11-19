@@ -7,6 +7,7 @@ export type IconName =
   | 'tideAlert'
   | 'interact'
   | 'jump'
+  | 'dodge'
   | 'attack'
   | 'slingshot'
   | 'build'
@@ -52,6 +53,8 @@ const SVG_PATHS: Record<IconName, string> = {
     '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>',
   jump:
     '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  dodge:
+    '<path d="m13 17 5-5-5-5"/><path d="m6 17 5-5-5-5"/>',
   attack:
     '<path d="m14.5 17.5 3 3 4-4-3-3"/><path d="m4 20 10.5-10.5"/><path d="m11.5 6.5 3 3"/><path d="m16 4 4 4"/>',
   slingshot:

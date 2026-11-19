@@ -129,6 +129,38 @@
 
 ---
 
+## Group A: Buttons and Input
+- [x] A1: Wrapper pointer-events none (.bottom-bar, .top-hud-bar), interactive elements auto, .action-cluster z-index 25, calc(env(safe-area-inset-*, 0px) + 16px) offsets, touch targets >= 56px with >= 12px gaps
+- [x] A2: Playwright UI test script (Playwright cannot be installed due to offline sandbox restrictions; verified via CSS rules, layout math, and tests/uiButtons.test.ts via npm run test:ui)
+- [x] A3: One-shot actions latched on pointerdown and cleared only when consumed by game loop, attack and sprint remain level-based, with unit tests in tests/inputLatching.test.ts
+- [x] A4: Action buttons use setPointerCapture and release on pointerup/pointercancel/lostpointercapture, held states cleared on window blur and visibilitychange
+- [x] A5: Jump uses MOVEMENT_CONSTANTS.JUMP_VELOCITY with 0.1s coyote time and 0.12s input buffer; separate Dodge button with custom SVG icon dodging along movement direction (backwards when standing still), spending stamina only when started
+- [x] A6: Single owner for interact prompt computing highest-priority context action (loot crate, resource node, board/disembark raft, confirm build); Interact button displays enabled/disabled state with action name
+- [x] A7: Inventory UI lists all recipes with required items/counts and disabled CRAFT button when unaffordable; tapping slot opens Use, Equip to quick slot, and Drop; simulation pauses while open; outside tap closes modal
+- [x] A8: In build mode Attack button becomes Place with checkmark icon, places once per press and does not repeat while held
+- [x] A9: Every button gets visible pressed feedback (:active and .pressed classes with scale and color highlights)
+- [x] Group A verification: npx tsc --noEmit, npm run build, npm test, npm run test:ui, lessons.md, commit and push
+
+## Group B: Smoothness
+- [ ] B1: Render with transform interpolation at loop alpha for player, enemies, raft; frame-rate independent camera smoothing with 1 - exp(-k * frameDt)
+- [ ] B2: Cap fixed steps at 3 per frame and drop remainder, maxFrameTime 0.1
+- [ ] B3: Directional sun shadow: fixed offset from target, texel grid snapping, tight far plane, PCFShadowMap, toggleable shadows on Low preset
+- [ ] B4: QualityManager with Low, Medium, High presets saved to IndexedDB, Settings panel in pause menu, default pixel ratio min(devicePixelRatio, 1.5), touch antialias off, dynamic resolution scaling (0.75-1.5) and shadow throttle
+- [ ] B5: Replace MeshStandardMaterial with MeshLambertMaterial on terrain, props, characters; share material and cached geometries in AssetRegistry; merge static geometries per prop
+- [ ] B6: Water mesh follows player snapped to vertex grid
+- [ ] B7: DOM thrash prevention: vitals, tide label, prompt, quick bar update only on change at max 10Hz; joystick styles only on change; debug overlay at 2Hz via textContent
+- [ ] B8: GPU shader rain with time uniform (zero CPU loops or per-tick buffer uploads)
+- [ ] B9: Extend ?debug overlay with average/p95 frame time, frames over 25ms in last 10s, quality preset and pixel ratio
+- [ ] Group B verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
+
+## Group C: Verification & Final Report
+- [ ] Build, tests, test:ui verification
+- [ ] Before and after performance metrics
+- [ ] Regression verification checklist
+- [ ] Final summary table (problem, file changed, test added, unfixed items)
+
+---
+
 ## Upgrade Backlog (GDD Mid-to-Late Game Features)
 - [ ] 1. Workbench Tier 2: Advanced crafting bench enabling metal tools, high-tier armor, and electrical components
 - [ ] 2. Machete: Fast high-damage melee weapon crafted with Gunmetal Grey steel and Aged Timber handle

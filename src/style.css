@@ -46,7 +46,7 @@ html, body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: env(safe-area-inset-top, 12px) env(safe-area-inset-right, 16px) env(safe-area-inset-bottom, 12px) env(safe-area-inset-left, 16px);
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) calc(env(safe-area-inset-right, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 16px) calc(env(safe-area-inset-left, 0px) + 16px);
   z-index: 10;
 }
 
@@ -69,6 +69,7 @@ html, body {
   justify-content: space-between;
   align-items: flex-start;
   width: 100%;
+  pointer-events: none;
 }
 
 /* Vitals Cluster */
@@ -213,23 +214,27 @@ html, body {
 /* Action Buttons Cluster (Right Bottom) */
 .action-cluster {
   position: absolute;
-  right: env(safe-area-inset-right, 24px);
-  bottom: env(safe-area-inset-bottom, 24px);
+  right: calc(env(safe-area-inset-right, 0px) + 16px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  pointer-events: auto;
+  gap: 12px;
+  pointer-events: none;
   align-items: flex-end;
+  z-index: 25;
 }
 
 .action-row {
   display: flex;
-  gap: 14px;
+  gap: 12px;
+  pointer-events: none;
 }
 
 .action-btn {
   width: 56px;
   height: 56px;
+  min-width: 56px;
+  min-height: 56px;
   border-radius: 50%;
   background-color: var(--color-storm-slate);
   border: 2px solid var(--color-gunmetal-grey);
@@ -241,21 +246,39 @@ html, body {
   font-size: 14px;
   touch-action: none;
   cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.08s ease-out, background-color 0.08s, border-color 0.08s;
 }
 
-.action-btn:active {
+.action-btn:active,
+.action-btn.pressed {
   background-color: var(--color-gunmetal-grey);
-  transform: scale(0.94);
+  border-color: var(--color-seafoam-white);
+  transform: scale(0.92);
 }
 
 .action-btn.attack-btn {
   width: 64px;
   height: 64px;
+  min-width: 64px;
+  min-height: 64px;
   border-color: var(--color-weathered-slate);
+}
+
+.action-btn.place-mode {
+  border-color: var(--color-circuit-green);
+  background-color: var(--color-gunmetal-grey);
 }
 
 .action-btn.interact-btn {
   border-color: var(--color-seafoam-white);
+}
+
+.action-btn.disabled,
+.action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: var(--color-gunmetal-grey);
 }
 
 /* Bottom Quick-Slot Bar */
@@ -263,18 +286,22 @@ html, body {
   display: flex;
   justify-content: center;
   width: 100%;
-  pointer-events: auto;
+  pointer-events: none;
+  margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
 }
 
 .quick-bar {
   display: flex;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 12px;
+  padding: 8px 12px;
+  pointer-events: auto;
 }
 
 .quick-slot {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
   background-color: var(--color-storm-slate);
   border: 1px solid var(--color-gunmetal-grey);
   border-radius: 4px;
@@ -284,6 +311,16 @@ html, body {
   justify-content: center;
   position: relative;
   cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
+  transition: transform 0.08s ease-out, border-color 0.08s;
+}
+
+.quick-slot:active,
+.quick-slot.pressed {
+  background-color: var(--color-gunmetal-grey);
+  border-color: var(--color-seafoam-white);
+  transform: scale(0.92);
 }
 
 .quick-slot.active {
@@ -339,21 +376,39 @@ html, body {
 
 .modal-close-btn {
   background: none;
-  border: none;
+  border: 1px solid transparent;
   color: var(--color-seafoam-white);
   cursor: pointer;
-  padding: 4px;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  touch-action: none;
+  transition: transform 0.08s ease-out, color 0.08s;
+}
+
+.modal-close-btn:active,
+.modal-close-btn.pressed {
+  color: var(--color-signal-crimson);
+  border-color: var(--color-gunmetal-grey);
+  transform: scale(0.92);
 }
 
 /* Inventory Grid */
 .inventory-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  gap: 12px;
 }
 
 .inventory-slot {
   aspect-ratio: 1;
+  min-width: 56px;
+  min-height: 56px;
   background-color: var(--color-gunmetal-grey);
   border: 1px solid var(--color-storm-slate);
   border-radius: 4px;
@@ -363,10 +418,113 @@ html, body {
   justify-content: center;
   position: relative;
   cursor: pointer;
+  touch-action: none;
+  transition: transform 0.08s ease-out, border-color 0.08s;
+}
+
+.inventory-slot:active,
+.inventory-slot.pressed {
+  transform: scale(0.94);
+  border-color: var(--color-seafoam-white);
 }
 
 .inventory-slot.selected {
   border-color: var(--color-seafoam-white);
+  background-color: var(--color-weathered-slate);
+}
+
+/* Inventory Slot Actions Popup */
+.slot-actions-panel {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding: 8px;
+  background-color: var(--color-gunmetal-grey);
+  border: 1px solid var(--color-weathered-slate);
+  border-radius: 4px;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.slot-action-btn {
+  flex: 1;
+  min-height: 56px;
+  background-color: var(--color-storm-slate);
+  border: 1px solid var(--color-gunmetal-grey);
+  border-radius: 4px;
+  color: var(--color-seafoam-white);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: none;
+  transition: transform 0.08s, background-color 0.08s;
+}
+
+.slot-action-btn:active,
+.slot-action-btn.pressed {
+  transform: scale(0.94);
+  background-color: var(--color-gunmetal-grey);
+  border-color: var(--color-seafoam-white);
+}
+
+.slot-action-btn.disabled,
+.slot-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Crafting list rows and buttons */
+.craft-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--color-gunmetal-grey);
+  border: 1px solid var(--color-storm-slate);
+  border-radius: 4px;
+  gap: 12px;
+}
+
+.craft-row.unaffordable {
+  opacity: 0.6;
+}
+
+.craft-btn {
+  min-width: 72px;
+  min-height: 56px;
+  padding: 0 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  background-color: var(--color-storm-slate);
+  border: 1px solid var(--color-gunmetal-grey);
+  color: var(--color-seafoam-white);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  transition: transform 0.08s, background-color 0.08s;
+}
+
+.craft-btn:active,
+.craft-btn.pressed {
+  transform: scale(0.94);
+  background-color: var(--color-gunmetal-grey);
+  border-color: var(--color-seafoam-white);
+}
+
+.craft-btn:disabled,
+.craft-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+  border-color: var(--color-gunmetal-grey);
 }
 
 /* Radial / Ring Build Menu */
@@ -374,18 +532,32 @@ html, body {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 280px;
-  height: 280px;
+  width: 300px;
+  height: 300px;
   transform: translate(-50%, -50%);
   pointer-events: auto;
   display: none;
   z-index: 40;
 }
 
+.radial-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(8, 12, 16, 0.5);
+  display: none;
+  z-index: 39;
+  pointer-events: auto;
+}
+
 .radial-item {
   position: absolute;
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
   border-radius: 50%;
   background-color: var(--color-storm-slate);
   border: 2px solid var(--color-gunmetal-grey);
@@ -394,6 +566,15 @@ html, body {
   justify-content: center;
   color: var(--color-seafoam-white);
   cursor: pointer;
+  touch-action: none;
+  transition: transform 0.08s, border-color 0.08s;
+}
+
+.radial-item:active,
+.radial-item.pressed {
+  transform: scale(0.92);
+  background-color: var(--color-gunmetal-grey);
+  border-color: var(--color-seafoam-white);
 }
 
 .radial-item.active {

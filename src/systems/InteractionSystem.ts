@@ -5,12 +5,11 @@ import { SoundSynth } from '../audio/SoundSynth';
 
 export class InteractionSystem {
   public nodes: ResourceNode[] = [];
-  private hud: HUD;
   public nearestNode: ResourceNode | null = null;
   private readonly maxInteractDistance = 3.2;
 
-  constructor(hud: HUD) {
-    this.hud = hud;
+  constructor(_hud?: HUD) {
+    // Retained for backward compatibility
   }
 
   public registerNode(node: ResourceNode): void {
@@ -33,20 +32,17 @@ export class InteractionSystem {
     }
 
     this.nearestNode = closest;
+  }
 
-    if (closest) {
-      let prompt = 'INTERACT';
-      if (closest.type === 'tree') prompt = 'CHOP TREE';
-      else if (closest.type === 'scrap_pile') prompt = 'SCAVENGE METAL';
-      else if (closest.type === 'plastic_barrel') prompt = 'SALVAGE BARREL';
-      else if (closest.type === 'shipping_container') prompt = 'LOOT CONTAINER';
-      else if (closest.type === 'sunken_electronics') prompt = 'RECOVER ELECTRONICS';
-      else if (closest.type === 'salvage_crate') prompt = 'LOOT CRATE';
-
-      this.hud.showInteractPrompt(prompt);
-    } else {
-      this.hud.showInteractPrompt(null);
-    }
+  public getNodeActionLabel(): string | null {
+    if (!this.nearestNode) return null;
+    if (this.nearestNode.type === 'tree') return 'CHOP TREE';
+    if (this.nearestNode.type === 'scrap_pile') return 'SCAVENGE METAL';
+    if (this.nearestNode.type === 'plastic_barrel') return 'SALVAGE BARREL';
+    if (this.nearestNode.type === 'shipping_container') return 'LOOT CONTAINER';
+    if (this.nearestNode.type === 'sunken_electronics') return 'RECOVER ELECTRONICS';
+    if (this.nearestNode.type === 'salvage_crate') return 'LOOT CRATE';
+    return 'INTERACT';
   }
 
   public triggerInteract(): DropYield[] | null {

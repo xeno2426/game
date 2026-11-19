@@ -92,12 +92,38 @@ async function bootstrap() {
   const buildingSystem = new BuildingSystem(scene, craftingSystem, terrain);
   const combatSystem = new CombatSystem();
 
+  const assetReg = AssetRegistry.get();
+  const activeCrates: ResourceNode[] = [];
+
+  const spawnSalvageCrate = (pos: THREE.Vector3, yields: DropYield[]) => {
+    const crateMesh = assetReg.createLootPickup('salvage_crate');
+    crateMesh.position.copy(pos);
+    scene.add(crateMesh);
+    const crateNode = new ResourceNode(
+      `salvage_${Date.now()}_${activeCrates.length}`,
+      'salvage_crate',
+      crateMesh,
+      pos.clone(),
+      1,
+      yields
+    );
+    interactionSystem.registerNode(crateNode);
+    activeCrates.push(crateNode);
+  };
+
   const touchControls = new TouchControls(inputManager);
-  const inventoryUI = new InventoryUI(craftingSystem, vitalsSystem, () => {
-    if (buildingSystem.isNearCampfire(player.position)) return 'campfire';
-    if (buildingSystem.isNearWorkbench(player.position)) return 'workbench';
-    return 'none';
-  });
+  const inventoryUI = new InventoryUI(
+    craftingSystem,
+    vitalsSystem,
+    () => {
+      if (buildingSystem.isNearCampfire(player.position)) return 'campfire';
+      if (buildingSystem.isNearWorkbench(player.position)) return 'workbench';
+      return 'none';
+    },
+    (itemId, count) => {
+      spawnSalvageCrate(player.position.clone(), [{ itemId, count }]);
+    }
+  );
   const buildMenuUI = new BuildMenuUI(buildingSystem);
 
   // Crosshair element for aiming
@@ -106,7 +132,6 @@ async function bootstrap() {
   document.getElementById('app')?.appendChild(crosshair);
 
   // Spawning Initial World Entities
-  const assetReg = AssetRegistry.get();
 
   // 1. Palm Trees
   const treeCoords = [
@@ -224,9 +249,6 @@ async function bootstrap() {
   // 6. Modular Raft
   const raft = new Raft(new THREE.Vector3(25, 0, -18), scene);
 
-  // Active salvage crates collection
-  const activeCrates: ResourceNode[] = [];
-
   // Restore saved game state
   const saved = await SaveSystem.load();
   if (saved) {
@@ -288,6 +310,7 @@ async function bootstrap() {
   let accumulatedTime = 0;
   let saveTimer = 0;
   let wasWarning = false;
+  let attackHeldInBuild = false;
   const vitalsFlags = {
     isSprinting: false,
     isSwimming: false,
@@ -298,6 +321,25 @@ async function bootstrap() {
 
   const gameLoop = new GameLoop(
     (dt: number) => {
+      // Pause simulation while inventory or build menus are open (A7)
+      if (inventoryUI.isOpen || buildMenuUI.isOpen) {
+        inputManager.update();
+        if (inputManager.state.isInventoryTogglePressed) {
+          inventoryUI.close();
+          inputManager.state.isInventoryTogglePressed = false;
+        }
+        if (inputManager.state.isBuildMenuTogglePressed) {
+          buildMenuUI.close();
+          inputManager.state.isBuildMenuTogglePressed = false;
+        }
+        if (inputManager.state.isEscapePressed) {
+          inventoryUI.close();
+          buildMenuUI.close();
+          inputManager.state.isEscapePressed = false;
+        }
+        return;
+      }
+
       accumulatedTime += dt;
       saveTimer += dt;
 
@@ -354,30 +396,72 @@ async function bootstrap() {
       // Water update
       water.update(accumulatedTime, tideState.waterLevel);
 
-      // Raft update & boarding
-      const distToRaft = player.position.distanceTo(raft.position);
-      const isNearRaft = distToRaft < 2.5;
-
-      if (raft.isPlayerBoarded) {
-        hud.showInteractPrompt('DISEMBARK');
-        if (inputManager.state.isInteractPressed) {
-          raft.isPlayerBoarded = false;
-          inputManager.state.isInteractPressed = false;
-          player.position.addScaledVector(raft.deltaDisplacement, 2);
-        }
-      } else if (isNearRaft && interactionSystem.nearestNode === null) {
-        hud.showInteractPrompt('BOARD RAFT');
-        if (inputManager.state.isInteractPressed) {
-          raft.isPlayerBoarded = true;
-          inputManager.state.isInteractPressed = false;
-        }
-      }
-
+      // Raft update
       raft.update(dt, accumulatedTime, tideState.waterLevel, inputManager.state);
-
       if (raft.isPlayerBoarded) {
         player.position.x += raft.deltaDisplacement.x;
         player.position.z += raft.deltaDisplacement.z;
+      }
+
+      // Interaction check
+      interactionSystem.update(player.position, tideState.phase === 'low' || tideState.phase === 'warning');
+
+      // Single owner for interact prompt resolution (A6)
+      const distToRaft = player.position.distanceTo(raft.position);
+      const isNearRaft = distToRaft < 2.5;
+
+      let contextAction: { label: string; execute: () => void } | null = null;
+      if (raft.isPlayerBoarded) {
+        contextAction = {
+          label: 'DISEMBARK',
+          execute: () => {
+            raft.isPlayerBoarded = false;
+            player.position.addScaledVector(raft.deltaDisplacement, 2);
+          },
+        };
+      } else if (interactionSystem.nearestNode) {
+        const promptLabel = interactionSystem.getNodeActionLabel() || 'INTERACT';
+        contextAction = {
+          label: promptLabel,
+          execute: () => {
+            const yields = interactionSystem.triggerInteract();
+            if (yields) {
+              for (const y of yields) {
+                craftingSystem.addItem(y.itemId, y.count);
+              }
+            }
+          },
+        };
+      } else if (isNearRaft) {
+        contextAction = {
+          label: 'BOARD RAFT',
+          execute: () => {
+            raft.isPlayerBoarded = true;
+          },
+        };
+      } else if (buildingSystem.currentBlueprintId) {
+        contextAction = {
+          label: 'CONFIRM BUILD',
+          execute: () => {
+            buildingSystem.placeCurrent();
+          },
+        };
+      }
+
+      // Update prompt & button state synchronously
+      if (contextAction) {
+        hud.showInteractPrompt(contextAction.label);
+        touchControls.setInteractState(true, contextAction.label);
+      } else {
+        hud.showInteractPrompt(null);
+        touchControls.setInteractState(false, null);
+      }
+
+      if (inputManager.state.isInteractPressed) {
+        inputManager.state.isInteractPressed = false;
+        if (contextAction) {
+          contextAction.execute();
+        }
       }
 
       // Player update
@@ -412,22 +496,30 @@ async function bootstrap() {
       // Weather update
       weather.update(dt, tideState.stormIntensity, player.position);
 
-      // Interaction check
-      interactionSystem.update(player.position, tideState.phase === 'low' || tideState.phase === 'warning');
-
-      if (inputManager.state.isInteractPressed) {
-        const yields = interactionSystem.triggerInteract();
-        if (yields) {
-          for (const y of yields) {
-            craftingSystem.addItem(y.itemId, y.count);
-          }
-        }
-        inputManager.state.isInteractPressed = false;
-      }
-
       // Building ghost update
       const forward = cameraController.getForwardVector();
       buildingSystem.update(player.position, forward);
+
+      // In build mode Attack button becomes Place, places once per press and does not repeat while held (A8)
+      const isInBuildMode = buildingSystem.currentBlueprintId !== null;
+      touchControls.setBuildMode(isInBuildMode);
+
+      if (isInBuildMode) {
+        if (inputManager.state.isAttackPressed) {
+          if (!attackHeldInBuild) {
+            attackHeldInBuild = true;
+            buildingSystem.placeCurrent();
+          }
+        } else {
+          attackHeldInBuild = false;
+        }
+      } else {
+        attackHeldInBuild = false;
+        if (hasAttacked) {
+          combatSystem.handlePlayerAttack(player);
+          if (navigator.vibrate) navigator.vibrate(40);
+        }
+      }
 
       // Combat update
       combatSystem.update(player, forward);
@@ -435,15 +527,6 @@ async function bootstrap() {
         crosshair.classList.add('target-locked');
       } else {
         crosshair.classList.remove('target-locked');
-      }
-
-      if (hasAttacked) {
-        if (buildingSystem.currentBlueprintId) {
-          buildingSystem.placeCurrent();
-        } else {
-          combatSystem.handlePlayerAttack(player);
-          if (navigator.vibrate) navigator.vibrate(40);
-        }
       }
 
       // Enemies update
@@ -470,24 +553,14 @@ async function bootstrap() {
         craftingSystem.updateHUD();
 
         if (droppedYields.length > 0) {
-          const crateMesh = assetReg.createLootPickup('salvage_crate');
-          crateMesh.position.set(
-            player.position.x,
-            Math.max(player.position.y, tideState.waterLevel + 0.2),
-            player.position.z
-          );
-          scene.add(crateMesh);
-
-          const crateNode = new ResourceNode(
-            `salvage_crate_${Date.now()}`,
-            'salvage_crate',
-            crateMesh,
-            crateMesh.position.clone(),
-            1,
+          spawnSalvageCrate(
+            new THREE.Vector3(
+              player.position.x,
+              Math.max(player.position.y, tideState.waterLevel + 0.2),
+              player.position.z
+            ),
             droppedYields
           );
-          interactionSystem.registerNode(crateNode);
-          activeCrates.push(crateNode);
         }
 
         // Respawn at starter island camp

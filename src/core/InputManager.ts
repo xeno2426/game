@@ -11,6 +11,7 @@ export interface InputState {
   // Actions
   isAttackPressed: boolean;
   isJumpPressed: boolean;
+  isDodgePressed: boolean;
   isInteractPressed: boolean;
   isRotatePressed: boolean;
   isFirstPersonTogglePressed: boolean;
@@ -31,6 +32,7 @@ export class InputManager {
     cameraDeltaY: 0,
     isAttackPressed: false,
     isJumpPressed: false,
+    isDodgePressed: false,
     isInteractPressed: false,
     isRotatePressed: false,
     isFirstPersonTogglePressed: false,
@@ -61,8 +63,10 @@ export class InputManager {
   private keysDown: Set<string> = new Set();
 
   constructor() {
-    this.setupTouchListeners();
-    this.setupKeyboardListeners();
+    if (typeof window !== 'undefined') {
+      this.setupTouchListeners();
+      this.setupKeyboardListeners();
+    }
   }
 
   private setupTouchListeners(): void {
@@ -199,6 +203,7 @@ export class InputManager {
 
       if (e.code === 'KeyE') this.state.isInteractPressed = true;
       if (e.code === 'Space') this.state.isJumpPressed = true;
+      if (e.code === 'KeyC') this.state.isDodgePressed = true;
       if (e.code === 'KeyF') this.state.isFirstPersonTogglePressed = true;
       if (e.code === 'KeyR') this.state.isRotatePressed = true;
       if (e.code === 'KeyB') this.state.isBuildMenuTogglePressed = true;
@@ -219,15 +224,74 @@ export class InputManager {
 
     window.addEventListener('keyup', (e) => {
       this.keysDown.delete(e.code);
-
-      if (e.code === 'KeyE') this.state.isInteractPressed = false;
-      if (e.code === 'Space') this.state.isJumpPressed = false;
-      if (e.code === 'KeyF') this.state.isFirstPersonTogglePressed = false;
-      if (e.code === 'KeyR') this.state.isRotatePressed = false;
-      if (e.code === 'KeyB') this.state.isBuildMenuTogglePressed = false;
-      if (e.code === 'KeyI' || e.code === 'Tab') this.state.isInventoryTogglePressed = false;
-      if (e.code === 'Escape') this.state.isEscapePressed = false;
+      // One-shot actions are latched on press and cleared only when consumed by game loop, never on keyup/pointerup.
     });
+
+    window.addEventListener('blur', () => this.clearHeldInputs());
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.clearHeldInputs();
+      }
+    });
+  }
+
+  public clearHeldInputs(): void {
+    this.state.isAttackPressed = false;
+    this.state.isSprinting = false;
+    this.state.moveX = 0;
+    this.state.moveZ = 0;
+    this.joystickPointerId = null;
+    this.isJoystickActive = false;
+    this.cameraPointerId = null;
+    this.keysDown.clear();
+  }
+
+  public consumeJump(): boolean {
+    const val = this.state.isJumpPressed;
+    this.state.isJumpPressed = false;
+    return val;
+  }
+
+  public consumeDodge(): boolean {
+    const val = this.state.isDodgePressed;
+    this.state.isDodgePressed = false;
+    return val;
+  }
+
+  public consumeInteract(): boolean {
+    const val = this.state.isInteractPressed;
+    this.state.isInteractPressed = false;
+    return val;
+  }
+
+  public consumeRotate(): boolean {
+    const val = this.state.isRotatePressed;
+    this.state.isRotatePressed = false;
+    return val;
+  }
+
+  public consumeFirstPersonToggle(): boolean {
+    const val = this.state.isFirstPersonTogglePressed;
+    this.state.isFirstPersonTogglePressed = false;
+    return val;
+  }
+
+  public consumeBuildMenuToggle(): boolean {
+    const val = this.state.isBuildMenuTogglePressed;
+    this.state.isBuildMenuTogglePressed = false;
+    return val;
+  }
+
+  public consumeInventoryToggle(): boolean {
+    const val = this.state.isInventoryTogglePressed;
+    this.state.isInventoryTogglePressed = false;
+    return val;
+  }
+
+  public consumeEscape(): boolean {
+    const val = this.state.isEscapePressed;
+    this.state.isEscapePressed = false;
+    return val;
   }
 
   public update(): void {
