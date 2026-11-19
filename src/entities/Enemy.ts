@@ -20,6 +20,7 @@ export class Enemy {
   private stateTimer = 0;
   private lungeDir = new THREE.Vector3();
   private hasHitThisLunge = false;
+  private _toPlayer = new THREE.Vector3();
   public isDead = false;
 
   constructor(id: string, type: EnemyType, startPos: THREE.Vector3, scene: THREE.Scene) {
@@ -72,6 +73,10 @@ export class Enemy {
 
     this.object.position.copy(this.position);
     this.object.rotation.y = this.rotationY;
+
+    if (this.type === 'hound' && this.state === 'telegraph') {
+      this.object.position.y = this.position.y + 0.15;
+    }
   }
 
   private updateHound(
@@ -81,8 +86,8 @@ export class Enemy {
     terrain: Terrain,
     onPlayerHit: (damage: number) => void
   ): void {
-    const toPlayer = new THREE.Vector3().subVectors(playerPos, this.position);
-    toPlayer.y = 0;
+    this._toPlayer.subVectors(playerPos, this.position);
+    this._toPlayer.y = 0;
 
     switch (this.state) {
       case 'idle':
@@ -98,14 +103,14 @@ export class Enemy {
           // Enter 1-second telegraph
           this.state = 'telegraph';
           this.stateTimer = ENEMY_CONSTANTS.HOUND_TELEGRAPH_SEC;
-          this.lungeDir.copy(toPlayer).normalize();
+          this.lungeDir.copy(this._toPlayer).normalize();
           SoundSynth.get().playHoundRoar();
         } else {
           // Run toward player
-          toPlayer.normalize();
-          this.position.x += toPlayer.x * ENEMY_CONSTANTS.HOUND_SPEED * dt;
-          this.position.z += toPlayer.z * ENEMY_CONSTANTS.HOUND_SPEED * dt;
-          this.rotationY = Math.atan2(toPlayer.x, toPlayer.z);
+          this._toPlayer.normalize();
+          this.position.x += this._toPlayer.x * ENEMY_CONSTANTS.HOUND_SPEED * dt;
+          this.position.z += this._toPlayer.z * ENEMY_CONSTANTS.HOUND_SPEED * dt;
+          this.rotationY = Math.atan2(this._toPlayer.x, this._toPlayer.z);
         }
         break;
 
@@ -159,14 +164,14 @@ export class Enemy {
     waterLevel: number,
     onPlayerHit: (damage: number) => void
   ): void {
-    const toPlayer = new THREE.Vector3().subVectors(playerPos, this.position);
-    toPlayer.y = 0;
+    this._toPlayer.subVectors(playerPos, this.position);
+    this._toPlayer.y = 0;
 
     if (distToPlayer < ENEMY_CONSTANTS.LURKER_AGGRO_RANGE) {
-      toPlayer.normalize();
-      this.position.x += toPlayer.x * ENEMY_CONSTANTS.LURKER_SWIM_SPEED * dt;
-      this.position.z += toPlayer.z * ENEMY_CONSTANTS.LURKER_SWIM_SPEED * dt;
-      this.rotationY = Math.atan2(toPlayer.x, toPlayer.z);
+      this._toPlayer.normalize();
+      this.position.x += this._toPlayer.x * ENEMY_CONSTANTS.LURKER_SWIM_SPEED * dt;
+      this.position.z += this._toPlayer.z * ENEMY_CONSTANTS.LURKER_SWIM_SPEED * dt;
+      this.rotationY = Math.atan2(this._toPlayer.x, this._toPlayer.z);
 
       if (distToPlayer < ENEMY_CONSTANTS.LURKER_ATTACK_RANGE) {
         onPlayerHit(ENEMY_CONSTANTS.LURKER_DAMAGE * dt);

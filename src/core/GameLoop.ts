@@ -8,6 +8,7 @@ export class GameLoop {
 
   private updateFn: (dt: number) => void;
   private renderFn: (alpha: number) => void;
+  private boundTick: (now: number) => void;
 
   constructor(
     updateFn: (dt: number) => void,
@@ -15,6 +16,7 @@ export class GameLoop {
   ) {
     this.updateFn = updateFn;
     this.renderFn = renderFn;
+    this.boundTick = this.tick.bind(this);
 
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
@@ -30,7 +32,7 @@ export class GameLoop {
     if (this.isRunning) return;
     this.isRunning = true;
     this.lastTime = performance.now();
-    requestAnimationFrame(this.tick.bind(this));
+    requestAnimationFrame(this.boundTick);
   }
 
   public stop(): void {
@@ -42,7 +44,7 @@ export class GameLoop {
 
     if (this.isPaused) {
       this.lastTime = now;
-      requestAnimationFrame(this.tick.bind(this));
+      requestAnimationFrame(this.boundTick);
       return;
     }
 
@@ -64,6 +66,6 @@ export class GameLoop {
     const alpha = this.accumulator / this.fixedTimestep;
     this.renderFn(alpha);
 
-    requestAnimationFrame(this.tick.bind(this));
+    requestAnimationFrame(this.boundTick);
   }
 }

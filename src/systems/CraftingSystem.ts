@@ -1,5 +1,5 @@
 import { RECIPES, type CraftingRecipe } from '../data/recipes';
-import { canCraft, craftItem, type InventorySlot } from '../logic/craftingLogic';
+import { canCraft, craftItem, addItemToInventory, type InventorySlot } from '../logic/craftingLogic';
 import { ITEMS } from '../data/items';
 import type { HUD } from '../ui/HUD';
 import { SoundSynth } from '../audio/SoundSynth';
@@ -36,35 +36,11 @@ export class CraftingSystem {
   }
 
   public addItem(itemId: string, count = 1): boolean {
-    // Try to stack onto existing item
     const def = ITEMS[itemId];
     const maxStack = def ? def.maxStack : 30;
-
-    for (const slot of this.inventory) {
-      if (slot.itemId === itemId && slot.count < maxStack) {
-        const canTake = maxStack - slot.count;
-        const take = Math.min(canTake, count);
-        slot.count += take;
-        count -= take;
-        if (count <= 0) {
-          this.updateHUD();
-          return true;
-        }
-      }
-    }
-
-    // Put in empty slot
-    for (const slot of this.inventory) {
-      if (!slot.itemId) {
-        slot.itemId = itemId;
-        slot.count = count;
-        this.updateHUD();
-        return true;
-      }
-    }
-
+    const result = addItemToInventory(this.inventory, itemId, count, maxStack);
     this.updateHUD();
-    return false; // Inventory full
+    return result;
   }
 
   public craft(recipeId: string, station: 'none' | 'workbench' | 'campfire' = 'none'): boolean {
@@ -84,6 +60,7 @@ export class CraftingSystem {
   }
 
   public setActiveQuickSlot(index: number): void {
+    if (this.activeQuickSlot === index) return;
     if (index >= 0 && index < 5) {
       this.activeQuickSlot = index;
       this.updateHUD();

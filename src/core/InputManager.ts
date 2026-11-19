@@ -55,6 +55,7 @@ export class InputManager {
   private cameraPointerId: number | null = null;
   private cameraLastX = 0;
   private cameraLastY = 0;
+  private cameraDeltaResult = { dx: 0, dy: 0 };
 
   // Keyboard state
   private keysDown: Set<string> = new Set();
@@ -65,6 +66,13 @@ export class InputManager {
   }
 
   private setupTouchListeners(): void {
+    window.addEventListener('contextmenu', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || !target.closest('input, textarea')) {
+        e.preventDefault();
+      }
+    });
+
     window.addEventListener(
       'pointerdown',
       (e) => {
@@ -74,6 +82,20 @@ export class InputManager {
           return;
         }
 
+        if (e.pointerType === 'mouse') {
+          if (e.button === 0) {
+            // Desktop left-click = attack
+            this.state.isAttackPressed = true;
+          } else if (e.button === 2) {
+            // Desktop right-click = camera drag
+            this.cameraPointerId = e.pointerId;
+            this.cameraLastX = e.clientX;
+            this.cameraLastY = e.clientY;
+          }
+          return;
+        }
+
+        // Touch pointers
         const isLeftHalf = e.clientX < window.innerWidth / 2;
 
         if (isLeftHalf && this.joystickPointerId === null) {
@@ -91,12 +113,18 @@ export class InputManager {
           this.cameraLastY = e.clientY;
         }
       },
-      { passive: true }
+      { passive: false }
     );
 
     window.addEventListener(
       'pointermove',
       (e) => {
+        if (document.pointerLockElement) {
+          this.state.cameraDeltaX += e.movementX;
+          this.state.cameraDeltaY += e.movementY;
+          return;
+        }
+
         if (e.pointerId === this.joystickPointerId) {
           this.joystickCurrentX = e.clientX;
           this.joystickCurrentY = e.clientY;
@@ -129,6 +157,9 @@ export class InputManager {
     );
 
     const onPointerEnd = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse' && e.button === 0) {
+        this.state.isAttackPressed = false;
+      }
       if (e.pointerId === this.joystickPointerId) {
         this.joystickPointerId = null;
         this.isJoystickActive = false;
@@ -152,6 +183,19 @@ export class InputManager {
   private setupKeyboardListeners(): void {
     window.addEventListener('keydown', (e) => {
       this.keysDown.add(e.code);
+
+      if (e.repeat) {
+        if (
+          e.code === 'KeyF' ||
+          e.code === 'KeyR' ||
+          e.code === 'KeyB' ||
+          e.code === 'KeyI' ||
+          e.code === 'Tab' ||
+          e.code === 'Escape'
+        ) {
+          return;
+        }
+      }
 
       if (e.code === 'KeyE') this.state.isInteractPressed = true;
       if (e.code === 'Space') this.state.isJumpPressed = true;
@@ -184,21 +228,6 @@ export class InputManager {
       if (e.code === 'KeyI' || e.code === 'Tab') this.state.isInventoryTogglePressed = false;
       if (e.code === 'Escape') this.state.isEscapePressed = false;
     });
-
-    window.addEventListener('mousedown', (e) => {
-      if (e.button === 0) {
-        const target = e.target as HTMLElement | null;
-        if (!target || !target.closest('.hud-interactive, button')) {
-          this.state.isAttackPressed = true;
-        }
-      }
-    });
-
-    window.addEventListener('mouseup', (e) => {
-      if (e.button === 0) {
-        this.state.isAttackPressed = false;
-      }
-    });
   }
 
   public update(): void {
@@ -226,10 +255,10 @@ export class InputManager {
 
   // Consume per-frame camera deltas
   public consumeCameraDelta(): { dx: number; dy: number } {
-    const dx = this.state.cameraDeltaX;
-    const dy = this.state.cameraDeltaY;
+    this.cameraDeltaResult.dx = this.state.cameraDeltaX;
+    this.cameraDeltaResult.dy = this.state.cameraDeltaY;
     this.state.cameraDeltaX = 0;
     this.state.cameraDeltaY = 0;
-    return { dx, dy };
+    return this.cameraDeltaResult;
   }
 }

@@ -82,3 +82,38 @@ export function craftItem(
 
   return added;
 }
+
+export function addItemToInventory(
+  inventory: InventorySlot[],
+  itemId: string,
+  count = 1,
+  maxStack = 30
+): boolean {
+  // 1. Stack onto existing matching slots
+  for (const slot of inventory) {
+    if (slot.itemId === itemId && slot.count < maxStack) {
+      const canTake = maxStack - slot.count;
+      const take = Math.min(canTake, count);
+      slot.count += take;
+      count -= take;
+      if (count <= 0) {
+        return true;
+      }
+    }
+  }
+
+  // 2. Spill into empty slots respecting maxStack
+  for (const slot of inventory) {
+    if (!slot.itemId) {
+      const take = Math.min(maxStack, count);
+      slot.itemId = itemId;
+      slot.count = take;
+      count -= take;
+      if (count <= 0) {
+        return true;
+      }
+    }
+  }
+
+  return count === 0;
+}

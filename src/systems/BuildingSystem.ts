@@ -23,6 +23,7 @@ export class BuildingSystem {
 
   public ghostPosition = new THREE.Vector3();
   public isValidPlacement = false;
+  private scratchAimPos: [number, number, number] = [0, 0, 0];
 
   constructor(scene: THREE.Scene, craftingSystem: CraftingSystem, terrain: Terrain) {
     this.scene = scene;
@@ -75,10 +76,12 @@ export class BuildingSystem {
     const aimZ = playerPos.z + forwardDir.z * 4.5;
     const terrainY = this.terrain.getHeight(aimX, aimZ);
 
-    const aimPos: [number, number, number] = [aimX, terrainY, aimZ];
+    this.scratchAimPos[0] = aimX;
+    this.scratchAimPos[1] = terrainY;
+    this.scratchAimPos[2] = aimZ;
 
     // Check snap to nearest placed structure socket
-    const snap = findBestSnapSocket(this.placedStructures, aimPos, this.currentBlueprintId);
+    const snap = findBestSnapSocket(this.placedStructures, this.scratchAimPos, this.currentBlueprintId);
 
     if (snap) {
       this.ghostPosition.set(snap.socketWorldPos[0], snap.socketWorldPos[1], snap.socketWorldPos[2]);
@@ -96,9 +99,12 @@ export class BuildingSystem {
     // Check if player has required resources
     let hasResources = true;
     for (const cost of bp.cost) {
-      const hasCount = this.craftingSystem.inventory.reduce((acc, s) => {
-        return s.itemId === cost.itemId ? acc + s.count : acc;
-      }, 0);
+      let hasCount = 0;
+      for (const s of this.craftingSystem.inventory) {
+        if (s.itemId === cost.itemId) {
+          hasCount += s.count;
+        }
+      }
       if (hasCount < cost.count) {
         hasResources = false;
         break;

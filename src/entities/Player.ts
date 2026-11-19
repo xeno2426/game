@@ -22,6 +22,7 @@ export class Player {
 
   // Animation cycle accumulator
   private animTime = 0;
+  private updateResult = { staminaCost: 0, dodgeCost: 0, hasAttacked: false };
 
   // Scratch vectors for zero allocation
   private _moveDir = new THREE.Vector3();
@@ -199,7 +200,10 @@ export class Player {
     // Procedural animation update
     this.updateAnimation(dt, targetSpeed);
 
-    return { staminaCost, dodgeCost, hasAttacked };
+    this.updateResult.staminaCost = staminaCost;
+    this.updateResult.dodgeCost = dodgeCost;
+    this.updateResult.hasAttacked = hasAttacked;
+    return this.updateResult;
   }
 
   private updateAnimation(dt: number, speed: number): void {

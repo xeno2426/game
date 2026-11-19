@@ -288,6 +288,13 @@ async function bootstrap() {
   let accumulatedTime = 0;
   let saveTimer = 0;
   let wasWarning = false;
+  const vitalsFlags = {
+    isSprinting: false,
+    isSwimming: false,
+    isInStorm: false,
+    isNearCampfire: false,
+    isUnderRoof: false,
+  };
 
   const gameLoop = new GameLoop(
     (dt: number) => {
@@ -366,10 +373,7 @@ async function bootstrap() {
         }
       }
 
-      raft.update(dt, accumulatedTime, tideState.waterLevel, {
-        moveX: inputManager.state.moveX,
-        moveZ: inputManager.state.moveZ,
-      });
+      raft.update(dt, accumulatedTime, tideState.waterLevel, inputManager.state);
 
       if (raft.isPlayerBoarded) {
         player.position.x += raft.deltaDisplacement.x;
@@ -398,13 +402,12 @@ async function bootstrap() {
       // Vitals update
       const isNearCampfire = buildingSystem.isNearCampfire(player.position);
       const isUnderRoof = buildingSystem.isUnderRoof(player.position);
-      vitalsSystem.update(dt, {
-        isSprinting: inputManager.state.isSprinting && !raft.isPlayerBoarded,
-        isSwimming: player.isSwimming,
-        isInStorm: tideState.isHighTide,
-        isNearCampfire,
-        isUnderRoof,
-      });
+      vitalsFlags.isSprinting = inputManager.state.isSprinting && !raft.isPlayerBoarded;
+      vitalsFlags.isSwimming = player.isSwimming;
+      vitalsFlags.isInStorm = tideState.isHighTide;
+      vitalsFlags.isNearCampfire = isNearCampfire;
+      vitalsFlags.isUnderRoof = isUnderRoof;
+      vitalsSystem.update(dt, vitalsFlags);
 
       // Weather update
       weather.update(dt, tideState.stormIntensity, player.position);

@@ -12,10 +12,13 @@ export class CameraController {
   private currentTarget = new THREE.Vector3();
   private scratchTarget = new THREE.Vector3();
   private scratchCamPos = new THREE.Vector3();
+  private scratchLookDir = new THREE.Vector3();
+  private scratchForward = new THREE.Vector3();
+  private scratchRight = new THREE.Vector3();
 
   // Over-the-shoulder parameters
   private thirdPersonDistance = 4.2;
-  private thirdPersonOffset = new THREE.Vector3(0.7, 1.6, 0); // slightly right of right shoulder
+  private thirdPersonOffset = new THREE.Vector3(0, 1.6, 0); // vertical eye level, shoulder offset applied via yaw
   private firstPersonOffset = new THREE.Vector3(0, 1.65, 0);
 
   constructor(aspect: number) {
@@ -43,52 +46,53 @@ export class CameraController {
     this.yaw += (this.targetYaw - this.yaw) * damp;
     this.pitch += (this.targetPitch - this.pitch) * damp;
 
-    const offset = this.isFirstPerson ? this.firstPersonOffset : this.thirdPersonOffset;
-    const dist = this.isFirstPerson ? 0.05 : this.thirdPersonDistance;
-
-    // Target focus point (player neck / head level)
-    this.scratchTarget.copy(playerPos).add(offset);
-    this.currentTarget.lerp(this.scratchTarget, damp);
-
-    // Spherical position based on yaw and pitch
     const cosPitch = Math.cos(this.pitch);
     const sinPitch = Math.sin(this.pitch);
     const cosYaw = Math.cos(this.yaw);
     const sinYaw = Math.sin(this.yaw);
 
-    // In third-person, offset camera to right shoulder
-    let shoulderRightX = 0;
-    let shoulderRightZ = 0;
-    if (!this.isFirstPerson) {
-      // Right vector perpendicular to yaw
-      shoulderRightX = Math.cos(this.yaw) * 0.6;
-      shoulderRightZ = -Math.sin(this.yaw) * 0.6;
+    if (this.isFirstPerson) {
+      // First person: place camera at head, look outward along (-sinYaw*cosPitch, -sinPitch, -cosYaw*cosPitch)
+      this.scratchCamPos.copy(playerPos).add(this.firstPersonOffset);
+      this.camera.position.lerp(this.scratchCamPos, damp);
+
+      this.scratchLookDir.set(-sinYaw * cosPitch, -sinPitch, -cosYaw * cosPitch);
+      this.scratchTarget.copy(this.camera.position).add(this.scratchLookDir);
+      this.camera.lookAt(this.scratchTarget);
+    } else {
+      // Third person: over-the-shoulder offset rotated by yaw
+      this.scratchTarget.copy(playerPos).add(this.thirdPersonOffset);
+      this.currentTarget.lerp(this.scratchTarget, damp);
+
+      const shoulderRightX = Math.cos(this.yaw) * 0.6;
+      const shoulderRightZ = -Math.sin(this.yaw) * 0.6;
+
+      const camX = this.currentTarget.x + sinYaw * cosPitch * this.thirdPersonDistance + shoulderRightX;
+      const camY = this.currentTarget.y + sinPitch * this.thirdPersonDistance;
+      const camZ = this.currentTarget.z + cosYaw * cosPitch * this.thirdPersonDistance + shoulderRightZ;
+
+      this.scratchCamPos.set(camX, camY, camZ);
+      this.camera.position.lerp(this.scratchCamPos, damp);
+
+      this.camera.lookAt(this.currentTarget);
     }
-
-    const camX = this.currentTarget.x + sinYaw * cosPitch * dist + shoulderRightX;
-    const camY = this.currentTarget.y + sinPitch * dist;
-    const camZ = this.currentTarget.z + cosYaw * cosPitch * dist + shoulderRightZ;
-
-    this.scratchCamPos.set(camX, camY, camZ);
-    this.camera.position.lerp(this.scratchCamPos, damp);
-
-    // Look at target
-    this.camera.lookAt(this.currentTarget);
   }
 
-  public getForwardVector(out = new THREE.Vector3()): THREE.Vector3 {
-    this.camera.getWorldDirection(out);
-    out.y = 0;
-    out.normalize();
-    return out;
+  public getForwardVector(out?: THREE.Vector3): THREE.Vector3 {
+    const target = out || this.scratchForward;
+    this.camera.getWorldDirection(target);
+    target.y = 0;
+    target.normalize();
+    return target;
   }
 
-  public getRightVector(out = new THREE.Vector3()): THREE.Vector3 {
-    this.getForwardVector(out);
-    const x = out.x;
-    out.x = -out.z;
-    out.z = x;
-    return out;
+  public getRightVector(out?: THREE.Vector3): THREE.Vector3 {
+    const target = out || this.scratchRight;
+    this.getForwardVector(target);
+    const x = target.x;
+    target.x = -target.z;
+    target.z = x;
+    return target;
   }
 
   public getYaw(): number {

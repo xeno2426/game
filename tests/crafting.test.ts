@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { RECIPES } from '../src/data/recipes';
-import { canCraft, craftItem, type InventorySlot } from '../src/logic/craftingLogic';
+import { canCraft, craftItem, addItemToInventory, type InventorySlot } from '../src/logic/craftingLogic';
 
 describe('Crafting System', () => {
   it('should validate recipe ingredients and deduct correctly', () => {
@@ -35,5 +35,32 @@ describe('Crafting System', () => {
 
     expect(canCraft(meatRecipe, inventory, 'none')).toBe(false);
     expect(canCraft(meatRecipe, inventory, 'campfire')).toBe(true);
+  });
+
+  it('should respect maxStack in empty slots and spill excess into subsequent empty slots', () => {
+    const inventory: InventorySlot[] = [
+      { itemId: null, count: 0 },
+      { itemId: null, count: 0 },
+      { itemId: null, count: 0 },
+    ];
+
+    // Add 45 wood logs with maxStack of 20
+    const added = addItemToInventory(inventory, 'wood_log', 45, 20);
+    expect(added).toBe(true);
+
+    expect(inventory[0]).toEqual({ itemId: 'wood_log', count: 20 });
+    expect(inventory[1]).toEqual({ itemId: 'wood_log', count: 20 });
+    expect(inventory[2]).toEqual({ itemId: 'wood_log', count: 5 });
+  });
+
+  it('should return false if inventory cannot hold entire spill amount', () => {
+    const inventory: InventorySlot[] = [
+      { itemId: null, count: 0 },
+    ];
+
+    // Add 25 items with maxStack of 20 when only 1 slot is open
+    const added = addItemToInventory(inventory, 'wood_log', 25, 20);
+    expect(added).toBe(false);
+    expect(inventory[0]).toEqual({ itemId: 'wood_log', count: 20 });
   });
 });

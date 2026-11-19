@@ -112,14 +112,13 @@ export class HUD {
     const secs = Math.floor(timeRemainingSec % 60);
     const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
+    this.tidePanel.classList.toggle('warning', phase === 'warning');
+
     if (phase === 'warning') {
-      this.tidePanel.className = 'ui-panel tide-panel warning';
       this.tideTimeText.textContent = `TIDE WARNING (${formatted})`;
     } else if (phase === 'high') {
-      this.tidePanel.className = 'ui-panel tide-panel';
       this.tideTimeText.textContent = `HIGH TIDE (${formatted})`;
     } else {
-      this.tidePanel.className = 'ui-panel tide-panel';
       this.tideTimeText.textContent = `LOW TIDE (${formatted})`;
     }
   }

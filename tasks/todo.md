@@ -77,14 +77,14 @@
 - [x] Group B verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
 
 ### Group C: Medium (Logic, Camera & Performance)
-- [ ] M1: CameraController: remove world-space X from thirdPersonOffset, rotate shoulder by yaw, first-person look outward along (-sinYaw*cosPitch, -sinPitch, -cosYaw*cosPitch)
-- [ ] M2: setActiveQuickSlot returns early if slot unchanged
-- [ ] M3: addItem respects maxStack in empty slots and spills into further empty slots, with tests
-- [ ] M4: InputManager: ignore e.repeat for toggle keys, desktop camera drag on right-click/pointer-lock, attack on left-click, ignore touch pointer mouse events
-- [ ] M5: Hound telegraph Y offset applied after position copy / animate child mesh
-- [ ] M6: HUD.updateTide uses classList.toggle('warning', ...) instead of overwriting className
-- [ ] M7: Eliminate per-frame allocations: bind GameLoop tick once, scratch Vector3 in Enemy & CombatSystem, preallocated Float32Array(4) in Raft, search update paths
-- [ ] Group C verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
+- [x] M1: CameraController: remove world-space X from thirdPersonOffset, rotate shoulder by yaw, first-person look outward along (-sinYaw*cosPitch, -sinPitch, -cosYaw*cosPitch)
+- [x] M2: setActiveQuickSlot returns early if slot unchanged
+- [x] M3: addItem respects maxStack in empty slots and spills into further empty slots, with tests
+- [x] M4: InputManager: ignore e.repeat for toggle keys, desktop camera drag on right-click/pointer-lock, attack on left-click, ignore touch pointer mouse events
+- [x] M5: Hound telegraph Y offset applied after position copy / animate child mesh
+- [x] M6: HUD.updateTide uses classList.toggle('warning', ...) instead of overwriting className
+- [x] M7: Eliminate per-frame allocations: bind GameLoop tick once, scratch Vector3 in Enemy & CombatSystem, preallocated Float32Array(4) in Raft, search update paths
+- [x] Group C verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
 
 ### Group D: Low Priority & Branding
 - [ ] L1: Android strings.xml app_name and title_activity_main set to Tidebound
