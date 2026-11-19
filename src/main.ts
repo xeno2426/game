@@ -5,6 +5,7 @@ import { InputManager } from './core/InputManager';
 import { CameraController } from './core/CameraController';
 import { SaveSystem } from './core/SaveSystem';
 import { Terrain } from './world/Terrain';
+import { WorldGen } from './world/WorldGen';
 import { Water } from './world/Water';
 import { TideSystem } from './world/TideSystem';
 import { Weather } from './world/Weather';
@@ -76,8 +77,10 @@ async function bootstrap() {
   const debugOverlay = new DebugOverlay();
   const tideSystem = new TideSystem(scene, dirLight, hemiLight, debugOverlay.timescale);
   const weather = new Weather(scene);
-  const terrain = new Terrain(scene);
-  const water = new Water(scene);
+  const worldGen = WorldGen.get();
+  await worldGen.init();
+  const terrain = new Terrain(scene, worldGen);
+  const water = new Water(scene, worldGen);
   const player = new Player(scene);
 
   const cameraController = new CameraController(window.innerWidth / window.innerHeight);
@@ -575,7 +578,7 @@ async function bootstrap() {
         }
 
         // Respawn at starter island camp
-        player.position.set(0, 8, 12);
+        player.position.set(-820, 6, 820);
         player.velocity.set(0, 0, 0);
         vitalsSystem.vitals.health = 100;
         vitalsSystem.vitals.hydration = 100;
@@ -598,7 +601,7 @@ async function bootstrap() {
           }));
 
         SaveSystem.save({
-          version: 1,
+          version: 2,
           timestamp: Date.now(),
           playerPos: [player.position.x, player.position.y, player.position.z],
           vitals: vitalsSystem.vitals,
@@ -622,6 +625,9 @@ async function bootstrap() {
       const { dx, dy } = inputManager.consumeCameraDelta();
       cameraController.handleDrag(dx, dy);
       cameraController.update(renderPos, frameDt);
+
+      // Terrain chunk streaming follows player (B1)
+      terrain.update(renderPos);
 
       // Water mesh follows player, snapped to grid (B6)
       water.update(accumulatedTime, tideSystem.state.waterLevel, renderPos);

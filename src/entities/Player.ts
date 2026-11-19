@@ -7,8 +7,8 @@ import type { Terrain } from '../world/Terrain';
 
 export class Player {
   public rig: PlayerRig;
-  public position: THREE.Vector3 = new THREE.Vector3(0, 8, 12);
-  public prevPosition: THREE.Vector3 = new THREE.Vector3(0, 8, 12);
+  public position: THREE.Vector3 = new THREE.Vector3(-820, 6, 820);
+  public prevPosition: THREE.Vector3 = new THREE.Vector3(-820, 6, 820);
   public velocity: THREE.Vector3 = new THREE.Vector3();
   public rotationY = 0;
   public prevRotationY = 0;

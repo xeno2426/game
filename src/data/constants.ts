@@ -94,8 +94,8 @@ export const BUDGET_CONSTANTS = {
   MAX_TRIANGLES: 150000,
   SHADOW_MAX_DISTANCE: 40.0,
   SHADOW_MAP_SIZE: 1024,
-  CLEAR_FOG_NEAR: 40.0,
-  CLEAR_FOG_FAR: 160.0,
+  CLEAR_FOG_NEAR: 80.0,
+  CLEAR_FOG_FAR: 450.0, // Clear-weather fog far plane covers LOD0 & LOD1
   STORM_FOG_NEAR: 10.0,
   STORM_FOG_FAR: 55.0, // Storm fog pulls far plane in
 } as const;

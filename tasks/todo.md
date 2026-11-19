@@ -199,14 +199,14 @@
 - [x] A8. Group A verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
 
 ### Group B: Streaming Terrain and Dynamic Depth Water
-- [ ] B1. Create chunked terrain system in src/world/TerrainChunks.ts with 64m chunks and distance-based LOD (LOD0 32x32 <160m, LOD1 16x16 <400m, LOD2 8x8 <900m, culled >900m)
-- [ ] B2. Chunk skirts (3.5m drop on perimeter edges) to eliminate seams between differing LODs
-- [ ] B3. Pre-allocated chunk mesh and geometry pool to ensure zero runtime allocations during streaming
-- [ ] B4. Throttle chunk geometry updates to at most 1 per frame to eliminate frame-time spikes
-- [ ] B5. Create 1024x1024 DataTexture from baked heightmap and update Water.ts shader to sample dynamic depth, shore foam, and crest foam
-- [ ] B6. Adjust clear-weather fog far plane to 450m while retaining storm fog (near 10, far 55)
-- [ ] B7. Unit tests in tests/streamingTerrain.test.ts (chunk coordinate maths, LOD distance thresholds, pool reuse)
-- [ ] B8. Group B verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
+- [x] B1. Create chunked terrain system in src/world/TerrainChunks.ts with 64m chunks and distance-based LOD (LOD0 32x32 <160m, LOD1 16x16 <400m, LOD2 8x8 <900m, culled >900m)
+- [x] B2. Chunk skirts (3.5m drop on perimeter edges) to eliminate seams between differing LODs
+- [x] B3. Pre-allocated chunk mesh and geometry pool to ensure zero runtime allocations during streaming
+- [x] B4. Throttle chunk geometry updates to at most 1 per frame to eliminate frame-time spikes
+- [x] B5. Create 1024x1024 DataTexture from baked heightmap and update Water.ts shader to sample dynamic depth, shore foam, and crest foam
+- [x] B6. Adjust clear-weather fog far plane to 450m while retaining storm fog (near 10, far 55)
+- [x] B7. Unit tests in tests/streamingTerrain.test.ts (chunk coordinate maths, LOD distance thresholds, pool reuse)
+- [x] B8. Group B verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
 
 ### Group C: Props, Spawning, Landmarks and Navigation
 - [ ] C1. Delete hard-coded prop coordinates in main.ts and implement seeded jittered grid prop scattering per chunk

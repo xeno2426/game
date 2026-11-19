@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { PALETTE_COLORS } from '../data/palette';
 import { TIDE_CONSTANTS } from '../data/constants';
+import { HALF_WORLD, MAP_RES, WORLD_SIZE } from '../logic/worldLogic';
+import type { WorldGen } from './WorldGen';
 
 // Shared mathematical wave formula used by both CPU and GLSL vertex shader
 export function getWaveHeight(x: number, z: number, time: number): number {
@@ -9,19 +11,58 @@ export function getWaveHeight(x: number, z: number, time: number): number {
   return w1 + w2;
 }
 
+export function createHeightDataTexture(heightmap: Float32Array): THREE.DataTexture {
+  const width = MAP_RES;
+  const height = MAP_RES;
+  const data = new Uint8Array(width * height * 4);
+
+  // Height range: -35.0 to 35.0 (span 70.0)
+  for (let i = 0; i < width * height; i++) {
+    const h = heightmap[i];
+    const norm = Math.max(0.0, Math.min(1.0, (h + 35.0) / 70.0));
+    const val16 = Math.floor(norm * 65535.0);
+    const r = Math.floor(val16 / 256.0);
+    const g = val16 % 256;
+
+    const idx4 = i * 4;
+    data[idx4] = r;
+    data[idx4 + 1] = g;
+    data[idx4 + 2] = 0;
+    data[idx4 + 3] = 255;
+  }
+
+  const texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 export class Water {
   public mesh: THREE.Mesh;
   private material: THREE.ShaderMaterial;
   private size = 260.0;
   private segments = 90; // ~8.1k quads = 16.2k tris
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, worldGen?: WorldGen) {
     const geometry = new THREE.PlaneGeometry(this.size, this.size, this.segments, this.segments);
     geometry.rotateX(-Math.PI / 2);
 
     const cShallow = PALETTE_COLORS.TropicalTeal;
     const cDeep = PALETTE_COLORS.AbyssalNavy;
     const cFoam = PALETTE_COLORS.SeafoamWhite;
+
+    let heightTexture: THREE.DataTexture;
+    if (worldGen && worldGen.heightmap) {
+      heightTexture = createHeightDataTexture(worldGen.heightmap);
+    } else {
+      // Dummy 2x2 texture fallback for test environment
+      const dummy = new Uint8Array(2 * 2 * 4);
+      heightTexture = new THREE.DataTexture(dummy, 2, 2, THREE.RGBAFormat);
+      heightTexture.needsUpdate = true;
+    }
 
     this.material = new THREE.ShaderMaterial({
       transparent: true,
@@ -32,7 +73,9 @@ export class Water {
         uColorShallow: { value: new THREE.Color(cShallow) },
         uColorDeep: { value: new THREE.Color(cDeep) },
         uColorFoam: { value: new THREE.Color(cFoam) },
-        uIslandRadius: { value: 75.0 },
+        uHeightTexture: { value: heightTexture },
+        uWorldBounds: { value: new THREE.Vector2(WORLD_SIZE, HALF_WORLD) },
+        uHeightRange: { value: new THREE.Vector2(-35.0, 70.0) },
       },
       vertexShader: `
         uniform float uTime;
@@ -65,19 +108,19 @@ export class Water {
         uniform vec3 uColorDeep;
         uniform vec3 uColorFoam;
         uniform float uWaterLevel;
-        uniform float uIslandRadius;
+        uniform sampler2D uHeightTexture;
+        uniform vec2 uWorldBounds;
+        uniform vec2 uHeightRange;
 
         varying vec3 vWorldPos;
         varying float vWave;
 
         void main() {
-          // Analytical terrain height from baked island formula
-          float dist = length(vWorldPos.xz);
-          float normDist = dist / uIslandRadius;
-          float terrainH = -8.0;
-          if (normDist < 1.3) {
-            terrainH = (1.0 - pow(min(normDist, 1.2), 1.6)) * 18.0 - 5.5;
-          }
+          // Sample depth dynamically from baked heightmap texture
+          vec2 uv = (vWorldPos.xz + uWorldBounds.y) / uWorldBounds.x;
+          vec4 samp = texture2D(uHeightTexture, uv);
+          float normH = samp.r + (samp.g / 255.0);
+          float terrainH = normH * uHeightRange.y + uHeightRange.x;
 
           float depth = max(0.0, vWorldPos.y - terrainH);
 
@@ -101,6 +144,11 @@ export class Water {
     this.mesh = new THREE.Mesh(geometry, this.material);
     this.mesh.position.y = 0;
     scene.add(this.mesh);
+  }
+
+  public setHeightmap(heightmap: Float32Array): void {
+    const tex = createHeightDataTexture(heightmap);
+    this.material.uniforms.uHeightTexture.value = tex;
   }
 
   public update(timeSec: number, waterLevel: number, playerPos?: THREE.Vector3): void {
