@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TIDE_CONSTANTS, BUDGET_CONSTANTS } from '../data/constants';
 import { PALETTE_COLORS } from '../data/palette';
-import { computeTideState, type TideState } from '../../tests/tide.test';
+import { computeTideState, type TideState } from '../logic/tideLogic';
 
 export class TideSystem {
   public timeInCycle = 0;

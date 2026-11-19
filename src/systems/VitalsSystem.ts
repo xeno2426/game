@@ -1,4 +1,4 @@
-import { createInitialVitals, updateVitals, type VitalsState } from '../../tests/vitals.test';
+import { createInitialVitals, updateVitals, type VitalsState } from '../logic/vitalsLogic';
 import type { HUD } from '../ui/HUD';
 
 export class VitalsSystem {

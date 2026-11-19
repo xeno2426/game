@@ -19,6 +19,7 @@ export class Enemy {
 
   private stateTimer = 0;
   private lungeDir = new THREE.Vector3();
+  private hasHitThisLunge = false;
   public isDead = false;
 
   constructor(id: string, type: EnemyType, startPos: THREE.Vector3, scene: THREE.Scene) {
@@ -117,6 +118,7 @@ export class Enemy {
         if (this.stateTimer <= 0) {
           this.state = 'lunge';
           this.stateTimer = ENEMY_CONSTANTS.HOUND_LUNGE_DURATION;
+          this.hasHitThisLunge = false;
           this.object.rotation.z = 0;
         }
         break;
@@ -127,7 +129,8 @@ export class Enemy {
         this.position.z += this.lungeDir.z * ENEMY_CONSTANTS.HOUND_LUNGE_SPEED * dt;
 
         // Check if hit player during lunge
-        if (distToPlayer < 1.4) {
+        if (!this.hasHitThisLunge && distToPlayer < 1.4) {
+          this.hasHitThisLunge = true;
           onPlayerHit(ENEMY_CONSTANTS.HOUND_DAMAGE);
         }
 

@@ -3,10 +3,13 @@ import type { Enemy } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
 import { COMBAT_CONSTANTS } from '../data/constants';
 import { SoundSynth } from '../audio/SoundSynth';
+import { getForwardFromYaw } from '../logic/combatLogic';
 
 export class CombatSystem {
   public enemies: Enemy[] = [];
   public targetLockedEnemy: Enemy | null = null;
+  private _toEnemy = new THREE.Vector3();
+  private _pForward = new THREE.Vector3();
 
   public registerEnemy(enemy: Enemy): void {
     this.enemies.push(enemy);
@@ -20,12 +23,12 @@ export class CombatSystem {
     for (const enemy of this.enemies) {
       if (enemy.isDead) continue;
 
-      const toEnemy = new THREE.Vector3().subVectors(enemy.position, player.position);
-      const dist = toEnemy.length();
+      this._toEnemy.subVectors(enemy.position, player.position);
+      const dist = this._toEnemy.length();
 
       if (dist <= COMBAT_CONSTANTS.SLINGSHOT_RANGE) {
-        toEnemy.normalize();
-        const angle = cameraForward.angleTo(toEnemy);
+        this._toEnemy.normalize();
+        const angle = cameraForward.angleTo(this._toEnemy);
         if (angle < minAngle) {
           minAngle = angle;
           this.targetLockedEnemy = enemy;
@@ -60,8 +63,8 @@ export class CombatSystem {
 
     if (nearest) {
       // Soft lock: magnetize player rotation towards target
-      const toEnemy = new THREE.Vector3().subVectors(nearest.position, player.position);
-      player.rotationY = Math.atan2(toEnemy.x, toEnemy.z);
+      this._toEnemy.subVectors(nearest.position, player.position);
+      player.rotationY = Math.atan2(this._toEnemy.x, this._toEnemy.z);
 
       nearest.takeDamage(COMBAT_CONSTANTS.MELEE_DAMAGE);
       SoundSynth.get().playMetalHit();
@@ -77,13 +80,13 @@ export class CombatSystem {
       SoundSynth.get().playMetalHit();
     } else {
       // Find closest enemy in forward direction
-      const pForward = new THREE.Vector3(-Math.sin(player.rotationY), 0, -Math.cos(player.rotationY));
+      getForwardFromYaw(player.rotationY, this._pForward);
       for (const enemy of this.enemies) {
         if (enemy.isDead) continue;
-        const toEnemy = new THREE.Vector3().subVectors(enemy.position, player.position);
-        if (toEnemy.length() <= COMBAT_CONSTANTS.SLINGSHOT_RANGE) {
-          toEnemy.normalize();
-          if (pForward.angleTo(toEnemy) < 0.4) {
+        this._toEnemy.subVectors(enemy.position, player.position);
+        if (this._toEnemy.length() <= COMBAT_CONSTANTS.SLINGSHOT_RANGE) {
+          this._toEnemy.normalize();
+          if (this._pForward.angleTo(this._toEnemy) < 0.4) {
             enemy.takeDamage(COMBAT_CONSTANTS.SLINGSHOT_DAMAGE);
             SoundSynth.get().playMetalHit();
             break;

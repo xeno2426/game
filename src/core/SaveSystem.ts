@@ -1,6 +1,6 @@
-import type { VitalsState } from '../../tests/vitals.test';
-import type { InventorySlot } from '../../tests/crafting.test';
-import type { PlacedStructure } from '../../tests/building.test';
+import type { VitalsState } from '../logic/vitalsLogic';
+import type { InventorySlot } from '../logic/craftingLogic';
+import type { PlacedStructure } from '../logic/buildingLogic';
 
 export interface SavedGameState {
   version: number;

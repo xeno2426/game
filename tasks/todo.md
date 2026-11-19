@@ -54,6 +54,53 @@
 
 ---
 
+## Bug Fixes — Verified Bug List
+
+### Group A: Critical (Showstoppers)
+- [x] C1: Production code imports from tests/*.test.ts (move pure logic to src/logic/..., add lint test, verify grep -ri vitest dist)
+- [x] C2: Ocean renders at double height (mesh.position.y = 0, shader applies uWaterLevel, verify getSurfaceHeight)
+- [x] C3: Virtual joystick never renders (store touchControls and call update() every frame)
+- [x] C4: Player.equipItem rebuilds weapon mesh every tick (early return if itemId === currentEquippedItem && equippedMesh)
+- [x] C5: Feral hound lunge damages every tick (add per-lunge hasHitThisLunge flag)
+- [x] C6: Slingshot free-aim fires backwards (shared forward-from-yaw helper for Player & CombatSystem, add test)
+- [x] Group A verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
+
+### Group B: High Priority (Broken Features & Mobile UX)
+- [ ] H1: SaveSystem.load() never called on startup (restore player pos, vitals, inventory, tide, structures; test round trip)
+- [ ] H2: Quick-bar slots cannot be tapped (pointerdown with stopPropagation)
+- [ ] H3: Build mode cannot be exited (radial cancel item, clear on quick-slot switch / Escape)
+- [ ] H4: Raft does not carry player (explicit board/disembark, apply delta displacement & deck height, skip walk/swim)
+- [ ] H5: Death: salvage crate holds items & interactive/persisted; respawn resets all vitals & stamina, clears velocity
+- [ ] H6: Deduct dodge staminaCost only; wire campfire/roof radii from constants into vitalsSystem.update
+- [ ] H7: Placed structures collision: static AABBs in BuildingSystem, resolve wall collision, groundHeight calculation in src/logic/buildingLogic.ts with tests
+- [ ] H8: InventoryUI: .hud-interactive and stopPropagation on modal overlay; pass nearest station to getAvailableRecipes/craft
+- [ ] Group B verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
+
+### Group C: Medium (Logic, Camera & Performance)
+- [ ] M1: CameraController: remove world-space X from thirdPersonOffset, rotate shoulder by yaw, first-person look outward along (-sinYaw*cosPitch, -sinPitch, -cosYaw*cosPitch)
+- [ ] M2: setActiveQuickSlot returns early if slot unchanged
+- [ ] M3: addItem respects maxStack in empty slots and spills into further empty slots, with tests
+- [ ] M4: InputManager: ignore e.repeat for toggle keys, desktop camera drag on right-click/pointer-lock, attack on left-click, ignore touch pointer mouse events
+- [ ] M5: Hound telegraph Y offset applied after position copy / animate child mesh
+- [ ] M6: HUD.updateTide uses classList.toggle('warning', ...) instead of overwriting className
+- [ ] M7: Eliminate per-frame allocations: bind GameLoop tick once, scratch Vector3 in Enemy & CombatSystem, preallocated Float32Array(4) in Raft, search update paths
+- [ ] Group C verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
+
+### Group D: Low Priority & Branding
+- [ ] L1: Android strings.xml app_name and title_activity_main set to Tidebound
+- [ ] L2: Regenerate PWA PNG icons from SVG using palette colours (no neon ship), update generate-icons.js, update Capacitor icons/splash
+- [ ] L3: Replace placeholder README.md with real Tidebound README (no emojis)
+- [ ] Group D verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
+
+### Group E: Verification & Final Report
+- [ ] Run full build and tests
+- [ ] Start npm run dev -- --host and curl it
+- [ ] Run npm run preview and verify PWA manifest and icons served
+- [ ] Regression checklist in tasks/todo.md
+- [ ] Summary report table with bug id, file changed, test added, and any unfixed items
+
+---
+
 ## Upgrade Backlog (GDD Mid-to-Late Game Features)
 - [ ] 1. Workbench Tier 2: Advanced crafting bench enabling metal tools, high-tier armor, and electrical components
 - [ ] 2. Machete: Fast high-damage melee weapon crafted with Gunmetal Grey steel and Aged Timber handle

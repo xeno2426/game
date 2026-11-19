@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { AssetRegistry, type PlayerRig } from './AssetRegistry';
 import { MOVEMENT_CONSTANTS, VITALS_CONSTANTS } from '../data/constants';
+import { getForwardFromYaw } from '../logic/combatLogic';
 import type { InputState } from '../core/InputManager';
 import type { Terrain } from '../world/Terrain';
 
@@ -36,6 +37,9 @@ export class Player {
   }
 
   public equipItem(itemId: string | null): void {
+    if (itemId === this.currentEquippedItem && (this.equippedMesh !== null || itemId === null)) {
+      return;
+    }
     this.currentEquippedItem = itemId;
     if (this.equippedMesh) {
       this.rig.weaponSocket.remove(this.equippedMesh);
@@ -49,6 +53,12 @@ export class Player {
       this.equippedMesh = AssetRegistry.get().createSlingshot();
       this.rig.weaponSocket.add(this.equippedMesh);
     }
+  }
+
+  public getForwardVector(target?: THREE.Vector3): THREE.Vector3 {
+    const out = target || new THREE.Vector3();
+    getForwardFromYaw(this.rotationY, out);
+    return out;
   }
 
   public update(

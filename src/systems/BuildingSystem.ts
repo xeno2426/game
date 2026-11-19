@@ -3,7 +3,7 @@ import { BLUEPRINTS } from '../data/blueprints';
 import { BUILDING_CONSTANTS } from '../data/constants';
 import { AssetRegistry } from '../entities/AssetRegistry';
 import { PALETTE_COLORS } from '../data/palette';
-import { findBestSnapSocket, type PlacedStructure } from '../../tests/building.test';
+import { findBestSnapSocket, type PlacedStructure } from '../logic/buildingLogic';
 import type { CraftingSystem } from './CraftingSystem';
 import type { Terrain } from '../world/Terrain';
 

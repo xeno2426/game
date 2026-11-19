@@ -67,4 +67,28 @@ describe('Static Rule Linter', () => {
 
     expect(violations, `Found hex colour violations outside src/data/palette.ts:\n${violations.map(v => `${v.file}:${v.line}: ${v.text}`).join('\n')}`).toEqual([]);
   });
+
+  it('should not contain imports from tests or vitest in src', () => {
+    const rootDir = path.resolve(__dirname, '..');
+    const srcDir = path.join(rootDir, 'src');
+    const srcFiles = getFilesRecursively(srcDir);
+
+    const testImportRegex = /from\s+['"][^'"]*(?:tests\/|vitest)[^'"]*['"]/;
+    const violations: { file: string; line: number; text: string }[] = [];
+
+    for (const file of srcFiles) {
+      const content = fs.readFileSync(file, 'utf-8');
+      const lines = content.split('\n');
+      lines.forEach((line, index) => {
+        if (testImportRegex.test(line)) {
+          violations.push({ file: path.relative(rootDir, file), line: index + 1, text: line.trim() });
+        }
+      });
+    }
+
+    expect(
+      violations,
+      `Found forbidden imports from tests or vitest in src:\n${violations.map(v => `${v.file}:${v.line}: ${v.text}`).join('\n')}`
+    ).toEqual([]);
+  });
 });

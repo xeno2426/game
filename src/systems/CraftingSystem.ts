@@ -1,5 +1,5 @@
 import { RECIPES, type CraftingRecipe } from '../data/recipes';
-import { canCraft, craftItem, type InventorySlot } from '../../tests/crafting.test';
+import { canCraft, craftItem, type InventorySlot } from '../logic/craftingLogic';
 import { ITEMS } from '../data/items';
 import type { HUD } from '../ui/HUD';
 import { SoundSynth } from '../audio/SoundSynth';

@@ -100,14 +100,14 @@ export class Water {
     });
 
     this.mesh = new THREE.Mesh(geometry, this.material);
-    this.mesh.position.y = TIDE_CONSTANTS.WATER_LEVEL_LOW;
+    this.mesh.position.y = 0;
     scene.add(this.mesh);
   }
 
   public update(timeSec: number, waterLevel: number): void {
     this.material.uniforms.uTime.value = timeSec;
     this.material.uniforms.uWaterLevel.value = waterLevel;
-    this.mesh.position.y = waterLevel;
+    this.mesh.position.y = 0;
   }
 
   // Sample water surface height (waterLevel + wave displacement) at world (x, z)

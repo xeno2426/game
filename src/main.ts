@@ -88,7 +88,7 @@ async function bootstrap() {
   const buildingSystem = new BuildingSystem(scene, craftingSystem, terrain);
   const combatSystem = new CombatSystem();
 
-  new TouchControls(inputManager);
+  const touchControls = new TouchControls(inputManager);
   const inventoryUI = new InventoryUI(craftingSystem, vitalsSystem);
   const buildMenuUI = new BuildMenuUI(buildingSystem);
 
@@ -400,6 +400,8 @@ async function bootstrap() {
       }
     },
     (_alpha: number) => {
+      touchControls.update();
+
       // Camera drag & look-at
       const { dx, dy } = inputManager.consumeCameraDelta();
       cameraController.handleDrag(dx, dy);
