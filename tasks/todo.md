@@ -209,19 +209,19 @@
 - [x] B8. Group B verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
 
 ### Group C: Props, Spawning, Landmarks and Navigation
-- [ ] C1. Delete hard-coded prop coordinates in main.ts and implement seeded jittered grid prop scattering per chunk
-- [ ] C2. Batch repeated props into InstancedMesh per chunk (palms, rocks, barrels, scrap piles)
-- [ ] C3. 2D spatial hash grid for resource nodes allowing O(1) proximity queries within 4m in InteractionSystem
-- [ ] C4. Deterministic node harvesting tracking with respawn after 3 tide cycles (2700s)
-- [ ] C5. Biome-based enemy spawning (hounds on land, lurkers in swamps/deep water, wake <120m, sleep/despawn >200m, max 6 active)
-- [ ] C6. Fixed landmark placement (harbour cranes, wrecked tanker, radio tower, oil rigs)
-- [ ] C7. Player spawn on south-west beach, respawn at nearest campfire/shelter or starter camp
-- [ ] C8. World map modal (SVG button in HUD, 512x512 pre-rendered biome canvas, player heading arrow)
-- [ ] C9. HUD compass strip with cardinal directions and landmark icons
-- [ ] C10. Teleport shortcuts in ?debug overlay for all biomes and landmarks
-- [ ] C11. Tune RAFT_CONSTANTS MAX_SAIL_SPEED to 10.0 m/s for 5-minute map crossing and record in tasks/planning.md
-- [ ] C12. Unit tests in tests/propsAndSpawning.test.ts (spatial hash grid, respawn timing, landmark coords, raft speed)
-- [ ] C13. Group C verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
+- [x] C1. Delete hard-coded prop coordinates in main.ts and implement seeded jittered grid prop scattering per chunk
+- [x] C2. Batch repeated props into InstancedMesh per chunk (palms, rocks, barrels, scrap piles)
+- [x] C3. 2D spatial hash grid for resource nodes allowing O(1) proximity queries within 4m in InteractionSystem
+- [x] C4. Deterministic node harvesting tracking with respawn after 3 tide cycles (2700s)
+- [x] C5. Biome-based enemy spawning (hounds on land, lurkers in swamps/deep water, wake <120m, sleep/despawn >200m, max 6 active)
+- [x] C6. Fixed landmark placement (harbour cranes, wrecked tanker, radio tower, oil rigs)
+- [x] C7. Player spawn on south-west beach, respawn at nearest campfire/shelter or starter camp
+- [x] C8. World map modal (SVG button in HUD, 512x512 pre-rendered biome canvas, player heading arrow)
+- [x] C9. HUD compass strip with cardinal directions and landmark icons
+- [x] C10. Teleport shortcuts in ?debug overlay for all biomes and landmarks
+- [x] C11. Tune RAFT_CONSTANTS MAX_SAIL_SPEED to 10.0 m/s for 5-minute map crossing and record in tasks/planning.md
+- [x] C12. Unit tests in tests/propsAndSpawning.test.ts (spatial hash grid, respawn timing, landmark coords, raft speed)
+- [x] C13. Group C verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
 
 ### Group D: GLB Asset Pipeline and CC0 Models
 - [ ] D1. Add GLTFLoader and SkeletonUtils imports in src/entities/AssetRegistry.ts

@@ -16,6 +16,9 @@ export class DebugOverlay {
   private historyHead = 0;
   private historyCount = 0;
 
+  public onTeleport?: (x: number, y: number, z: number) => void;
+  private teleportEl: HTMLElement | null = null;
+
   constructor() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -31,8 +34,70 @@ export class DebugOverlay {
         this.el = document.createElement('div');
         this.el.className = 'debug-overlay';
         document.getElementById('app')?.appendChild(this.el);
+
+        this.createTeleportMenu();
       }
     }
+  }
+
+  private createTeleportMenu(): void {
+    const locations: { name: string; pos: [number, number, number] }[] = [
+      { name: 'Starter Beach', pos: [-820, 6.0, 820] },
+      { name: 'Dense Jungle', pos: [-800, 10.0, 780] },
+      { name: 'Mangrove Swamp', pos: [-450, 5.0, 350] },
+      { name: 'Rocky Highlands', pos: [800, 22.0, 350] },
+      { name: 'Industrial Harbour', pos: [650, 8.0, -600] },
+      { name: 'Tidal Flats', pos: [-600, 4.0, 600] },
+      { name: 'Offshore Oil Rig Alpha', pos: [-900, 9.0, -1000] },
+      { name: 'Offshore Oil Rig Beta', pos: [450, 9.0, -1150] },
+      { name: 'Radio Tower Peak', pos: [0, 19.0, 0] },
+      { name: 'Harbour Crane', pos: [620, 8.0, -580] },
+      { name: 'Wrecked Tanker Reef', pos: [780, 5.0, -500] },
+    ];
+
+    this.teleportEl = document.createElement('div');
+    this.teleportEl.className = 'debug-teleport-menu hud-interactive';
+    this.teleportEl.style.position = 'fixed';
+    this.teleportEl.style.bottom = '80px';
+    this.teleportEl.style.left = '10px';
+    this.teleportEl.style.zIndex = '999';
+    this.teleportEl.style.background = 'rgba(8, 12, 16, 0.85)';
+    this.teleportEl.style.border = '1px solid var(--color-GunmetalGrey)';
+    this.teleportEl.style.borderRadius = '4px';
+    this.teleportEl.style.padding = '6px';
+    this.teleportEl.style.fontFamily = 'monospace';
+    this.teleportEl.style.fontSize = '12px';
+
+    const select = document.createElement('select');
+    select.className = 'hud-interactive';
+    select.style.background = 'var(--color-StormSlate)';
+    select.style.color = 'var(--color-SeafoamWhite)';
+    select.style.border = '1px solid var(--color-GunmetalGrey)';
+    select.style.padding = '4px';
+    select.style.borderRadius = '3px';
+
+    const defaultOpt = document.createElement('option');
+    defaultOpt.text = 'Teleport to...';
+    defaultOpt.value = '';
+    select.appendChild(defaultOpt);
+
+    for (const loc of locations) {
+      const opt = document.createElement('option');
+      opt.text = loc.name;
+      opt.value = loc.pos.join(',');
+      select.appendChild(opt);
+    }
+
+    select.addEventListener('change', () => {
+      if (select.value) {
+        const [x, y, z] = select.value.split(',').map(Number);
+        this.onTeleport?.(x, y, z);
+        select.value = '';
+      }
+    });
+
+    this.teleportEl.appendChild(select);
+    document.getElementById('app')?.appendChild(this.teleportEl);
   }
 
   public recordFrame(dtMs: number): void {

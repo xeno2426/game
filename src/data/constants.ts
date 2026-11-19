@@ -84,9 +84,14 @@ export const BUILDING_CONSTANTS = {
 
 export const RAFT_CONSTANTS = {
   BARREL_BUOYANCY_FORCE: 18.0,
-  MAX_SAIL_SPEED: 6.0,
+  MAX_SAIL_SPEED: 10.0, // Tuned for 5-minute archipelago transit (3000m / 300s)
   TURN_SPEED_RAD: 1.5,
   DAMPING: 0.95,
+} as const;
+
+export const RESOURCE_CONSTANTS = {
+  NODE_RESPAWN_TIME_SEC: 2700.0, // 3 tide cycles (3 * 900s)
+  INTERACTION_QUERY_RADIUS: 4.0,
 } as const;
 
 export const BUDGET_CONSTANTS = {

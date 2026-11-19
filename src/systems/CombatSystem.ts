@@ -15,6 +15,13 @@ export class CombatSystem {
     this.enemies.push(enemy);
   }
 
+  public unregisterEnemy(id: string): void {
+    const idx = this.enemies.findIndex((e) => e.id === id);
+    if (idx !== -1) {
+      this.enemies.splice(idx, 1);
+    }
+  }
+
   public update(player: Player, cameraForward: THREE.Vector3): void {
     // Check auto-aim assist cone for slingshot
     this.targetLockedEnemy = null;

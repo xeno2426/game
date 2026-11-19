@@ -11,9 +11,13 @@ import { TideSystem } from './world/TideSystem';
 import { Weather } from './world/Weather';
 import { Player } from './entities/Player';
 import { Raft } from './entities/Raft';
-import { Enemy } from './entities/Enemy';
+import { EnemyManager } from './entities/EnemyManager';
 import { ResourceNode, type DropYield } from './entities/ResourceNode';
 import { AssetRegistry } from './entities/AssetRegistry';
+import { ChunkPropsManager } from './world/ChunkProps';
+import { LandmarkManager } from './world/Landmarks';
+import { WorldMapUI } from './ui/WorldMapUI';
+import { CompassUI } from './ui/CompassUI';
 import { VitalsSystem } from './systems/VitalsSystem';
 import { InteractionSystem } from './systems/InteractionSystem';
 import { CraftingSystem } from './systems/CraftingSystem';
@@ -89,6 +93,9 @@ async function bootstrap() {
   const qualityManager = new QualityManager(renderer, dirLight);
   const settingsUI = new SettingsUI(qualityManager);
 
+  const worldMapUI = new WorldMapUI(worldGen);
+  const compassUI = new CompassUI();
+
   const hud = new HUD(
     (slotIndex) => {
       inputManager.state.activeQuickSlot = slotIndex;
@@ -97,6 +104,9 @@ async function bootstrap() {
     },
     () => {
       settingsUI.toggle();
+    },
+    () => {
+      worldMapUI.toggle();
     }
   );
   const vitalsSystem = new VitalsSystem(hud);
@@ -144,123 +154,35 @@ async function bootstrap() {
   crosshair.className = 'crosshair';
   document.getElementById('app')?.appendChild(crosshair);
 
-  // Spawning Initial World Entities
+  // Spawning Archipelago Systems (Group C)
 
-  // 1. Palm Trees
-  const treeCoords = [
-    [10, 8], [-12, 14], [18, -6], [-8, -12], [22, 10], [-18, 5]
-  ];
-  treeCoords.forEach(([x, z], i) => {
-    const y = terrain.getHeight(x, z);
-    const treeMesh = assetReg.createPalmTree();
-    scene.add(treeMesh);
-    interactionSystem.registerNode(
-      new ResourceNode(
-        `tree_${i}`,
-        'tree',
-        treeMesh,
-        new THREE.Vector3(x, y, z),
-        3,
-        [
-          { itemId: 'wood_log', count: 3 },
-          { itemId: 'palm_frond', count: 2 },
-          { itemId: 'coconut', count: 1 },
-        ]
-      )
-    );
-  });
+  // 1. Procedural Chunk Props & Resources
+  const chunkPropsManager = new ChunkPropsManager(scene, worldGen);
+  interactionSystem.setSpatialGrid(chunkPropsManager.spatialGrid);
 
-  // 2. Scrap Piles
-  const scrapCoords = [
-    [15, -15], [-16, -18], [25, 2], [-22, -8]
-  ];
-  scrapCoords.forEach(([x, z], i) => {
-    const y = terrain.getHeight(x, z);
-    const scrapMesh = assetReg.createScrapPile();
-    scene.add(scrapMesh);
-    interactionSystem.registerNode(
-      new ResourceNode(
-        `scrap_${i}`,
-        'scrap_pile',
-        scrapMesh,
-        new THREE.Vector3(x, y, z),
-        2,
-        [
-          { itemId: 'scrap_metal', count: 3 },
-          { itemId: 'bolts', count: 4 },
-        ]
-      )
-    );
-  });
+  terrain.chunks.onChunkMounted = (key, cx, cz) => {
+    chunkPropsManager.onChunkLoaded(key, cx, cz, accumulatedTime);
+  };
+  terrain.chunks.onChunkUnmounted = (key, cx, cz) => {
+    chunkPropsManager.onChunkUnloaded(key, cx, cz);
+  };
 
-  // 3. Plastic Blue Barrels
-  const barrelCoords = [
-    [28, -20], [-25, 18], [8, -28]
-  ];
-  barrelCoords.forEach(([x, z], i) => {
-    const y = terrain.getHeight(x, z);
-    const barrelMesh = assetReg.createPlasticBarrel();
-    scene.add(barrelMesh);
-    interactionSystem.registerNode(
-      new ResourceNode(
-        `barrel_${i}`,
-        'plastic_barrel',
-        barrelMesh,
-        new THREE.Vector3(x, y, z),
-        1,
-        [
-          { itemId: 'plastic_barrel', count: 1 },
-          { itemId: 'rope', count: 1 },
-        ]
-      )
-    );
-  });
+  // 2. Fixed Archipelago Landmarks
+  const landmarkManager = new LandmarkManager(scene);
+  void landmarkManager; // Retain active landmark group
 
-  // 4. Sunken Shipping Containers (Low Tide Exposed)
-  const containerMeshRed = assetReg.createShippingContainer(false);
-  scene.add(containerMeshRed);
-  interactionSystem.registerNode(
-    new ResourceNode(
-      'container_red',
-      'shipping_container',
-      containerMeshRed,
-      new THREE.Vector3(38, 1.2, 10),
-      4,
-      [
-        { itemId: 'scrap_metal', count: 5 },
-        { itemId: 'cloth', count: 4 },
-      ],
-      true
-    )
-  );
+  // 3. Dynamic Enemy Manager (Biome spawning, max 6 active, sleep >200m)
+  const enemyManager = new EnemyManager(scene, worldGen, combatSystem);
 
-  const containerMeshBlue = assetReg.createShippingContainer(true);
-  scene.add(containerMeshBlue);
-  interactionSystem.registerNode(
-    new ResourceNode(
-      'container_blue',
-      'sunken_electronics',
-      containerMeshBlue,
-      new THREE.Vector3(-35, 1.0, -25),
-      4,
-      [
-        { itemId: 'copper_wire', count: 4 },
-        { itemId: 'circuit_board', count: 2 },
-        { itemId: 'battery', count: 1 },
-      ],
-      true
-    )
-  );
+  // 4. Debug Teleport Hook
+  debugOverlay.onTeleport = (x, y, z) => {
+    player.position.set(x, y, z);
+    player.prevPosition.set(x, y, z);
+    player.velocity.set(0, 0, 0);
+  };
 
-  // 5. Enemies: Feral Hound and Tide Lurker
-  const hound = new Enemy('hound_1', 'hound', new THREE.Vector3(18, 0, 16), scene);
-  combatSystem.registerEnemy(hound);
-
-  const lurker = new Enemy('lurker_1', 'lurker', new THREE.Vector3(32, 0, -32), scene);
-  combatSystem.registerEnemy(lurker);
-
-  // 6. Modular Raft
-  const raft = new Raft(new THREE.Vector3(25, 0, -18), scene);
+  // 5. Modular Raft (spawned at starter island shore)
+  const raft = new Raft(new THREE.Vector3(-800, 0, 800), scene);
 
   // Restore saved game state
   const saved = await SaveSystem.load();
@@ -334,8 +256,8 @@ async function bootstrap() {
 
   const gameLoop = new GameLoop(
     (dt: number) => {
-      // Pause simulation while inventory, build, or settings menus are open (A7, B4)
-      if (inventoryUI.isOpen || buildMenuUI.isOpen || settingsUI.isOpen) {
+      // Pause simulation while inventory, build, settings, or map menus are open (A7, B4)
+      if (inventoryUI.isOpen || buildMenuUI.isOpen || settingsUI.isOpen || worldMapUI.isOpen) {
         inputManager.update();
         if (inputManager.state.isInventoryTogglePressed) {
           inventoryUI.close();
@@ -345,13 +267,23 @@ async function bootstrap() {
           buildMenuUI.close();
           inputManager.state.isBuildMenuTogglePressed = false;
         }
+        if (inputManager.state.isMapTogglePressed) {
+          worldMapUI.close();
+          inputManager.state.isMapTogglePressed = false;
+        }
         if (inputManager.state.isEscapePressed) {
           settingsUI.close();
           inventoryUI.close();
           buildMenuUI.close();
+          worldMapUI.close();
           inputManager.state.isEscapePressed = false;
         }
         return;
+      }
+
+      if (inputManager.state.isMapTogglePressed) {
+        worldMapUI.toggle();
+        inputManager.state.isMapTogglePressed = false;
       }
 
       accumulatedTime += dt;
@@ -438,10 +370,14 @@ async function bootstrap() {
         contextAction = {
           label: promptLabel,
           execute: () => {
+            const nearest = interactionSystem.nearestNode;
             const yields = interactionSystem.triggerInteract();
             if (yields) {
               for (const y of yields) {
                 craftingSystem.addItem(y.itemId, y.count);
+              }
+              if (nearest && nearest.isDepleted) {
+                chunkPropsManager.harvestNode(nearest.id, accumulatedTime);
               }
             }
           },
@@ -543,15 +479,10 @@ async function bootstrap() {
         crosshair.classList.remove('target-locked');
       }
 
-      // Enemies update
-      hound.update(dt, player.position, terrain, tideState.waterLevel, (dmg) => {
+      // Enemies update (biome spawning, sleep >200m, wake <120m)
+      enemyManager.update(dt, player.position, terrain, tideState.waterLevel, (dmg) => {
         vitalsSystem.takeDamage(dmg);
         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      });
-
-      lurker.update(dt, player.position, terrain, tideState.waterLevel, (dmg) => {
-        vitalsSystem.takeDamage(dmg);
-        if (navigator.vibrate) navigator.vibrate(80);
       });
 
       // Death check: drop non-equipped inventory in floating salvage crate
@@ -577,8 +508,10 @@ async function bootstrap() {
           );
         }
 
-        // Respawn at starter island camp
-        player.position.set(-820, 6, 820);
+        // Respawn at nearest campfire or shelter, else starter camp (C7)
+        const respawnPos = buildingSystem.getNearestCampfireOrShelter(player.position) ?? new THREE.Vector3(-820, 6, 820);
+        player.position.copy(respawnPos);
+        player.prevPosition.copy(respawnPos);
         player.velocity.set(0, 0, 0);
         vitalsSystem.vitals.health = 100;
         vitalsSystem.vitals.hydration = 100;
@@ -617,14 +550,17 @@ async function bootstrap() {
 
       // Entity transform interpolation at alpha (B1)
       const renderPos = player.render(alpha);
-      hound.render(alpha);
-      lurker.render(alpha);
+      enemyManager.render(alpha);
       raft.render(alpha);
 
       // Camera drag & look-at with real frameDt and interpolated player position (B1)
       const { dx, dy } = inputManager.consumeCameraDelta();
       cameraController.handleDrag(dx, dy);
       cameraController.update(renderPos, frameDt);
+
+      // World map & compass update (Group C)
+      worldMapUI.update(renderPos.x, renderPos.z, cameraController.getYaw());
+      compassUI.update(cameraController.getYaw(), renderPos.x, renderPos.z);
 
       // Terrain chunk streaming follows player (B1)
       terrain.update(renderPos);

@@ -33,6 +33,8 @@ export class TerrainChunks {
   public worldGen: WorldGen;
   public activeChunks = new Map<string, ActiveChunk>();
   public buildQueue: ChunkBuildRequest[] = [];
+  public onChunkMounted?: (key: string, cx: number, cz: number) => void;
+  public onChunkUnmounted?: (key: string, cx: number, cz: number) => void;
 
   private pools: Record<LODLevel, THREE.Mesh[]> = {
     0: [],
@@ -203,6 +205,7 @@ export class TerrainChunks {
     // Free chunks outside visible radius
     for (const [key, chunk] of this.activeChunks.entries()) {
       if (!neededKeys.has(key)) {
+        this.onChunkUnmounted?.(key, chunk.cx, chunk.cz);
         this.releaseMesh(chunk.mesh, chunk.lod);
         this.activeChunks.delete(key);
       }
@@ -238,6 +241,7 @@ export class TerrainChunks {
     // If chunk was already active with older LOD, return old mesh
     const old = this.activeChunks.get(key);
     if (old) {
+      this.onChunkUnmounted?.(key, old.cx, old.cz);
       this.releaseMesh(old.mesh, old.lod);
       this.activeChunks.delete(key);
     }
@@ -247,6 +251,7 @@ export class TerrainChunks {
 
     this.scene.add(mesh);
     this.activeChunks.set(key, { key, cx, cz, lod, mesh });
+    this.onChunkMounted?.(key, cx, cz);
   }
 
   private populateChunkGeometry(mesh: THREE.Mesh, cx: number, cz: number, lod: LODLevel): void {

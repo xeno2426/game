@@ -218,6 +218,24 @@ export class BuildingSystem {
     return false;
   }
 
+  public getNearestCampfireOrShelter(pos: { x: number; y: number; z: number }): THREE.Vector3 | null {
+    let bestDist = 25.0 * 25.0; // within 25m
+    let bestPos: THREE.Vector3 | null = null;
+    for (const s of this.placedStructures) {
+      if (s.blueprintId === 'campfire' || s.blueprintId === 'roof') {
+        const dx = s.position[0] - pos.x;
+        const dy = s.position[1] - pos.y;
+        const dz = s.position[2] - pos.z;
+        const d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < bestDist) {
+          bestDist = d2;
+          bestPos = new THREE.Vector3(s.position[0], s.position[1] + 0.5, s.position[2]);
+        }
+      }
+    }
+    return bestPos;
+  }
+
   private createStructureMesh(blueprintId: string): THREE.Object3D {
     const registry = AssetRegistry.get();
     switch (blueprintId) {

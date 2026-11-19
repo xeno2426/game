@@ -14,6 +14,7 @@ export class HUD {
   private interactPrompt: HTMLElement;
   private onSelectQuickSlot?: (index: number) => void;
   private onOpenSettings?: () => void;
+  private onOpenMap?: () => void;
 
   // DOM thrash reduction state caches (B7)
   private prevHealth = -1;
@@ -31,10 +32,12 @@ export class HUD {
 
   constructor(
     onSelectQuickSlot?: (index: number) => void,
-    onOpenSettings?: () => void
+    onOpenSettings?: () => void,
+    onOpenMap?: () => void
   ) {
     this.onSelectQuickSlot = onSelectQuickSlot;
     this.onOpenSettings = onOpenSettings;
+    this.onOpenMap = onOpenMap;
     this.container = document.createElement('div');
     this.container.className = 'hud-layer';
     this.container.innerHTML = `
@@ -72,6 +75,9 @@ export class HUD {
             <div class="tide-indicator"></div>
             <span id="tide-time-text">LOW TIDE (10:00)</span>
           </div>
+          <button id="btn-hud-map" class="ui-panel hud-interactive" title="World Map" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; padding: 0;">
+            ${getSvgIcon('map', 20)}
+          </button>
           <button id="btn-hud-settings" class="ui-panel hud-interactive" title="Graphics Settings" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; padding: 0;">
             ${getSvgIcon('settings', 20)}
           </button>
@@ -103,6 +109,12 @@ export class HUD {
     settingsBtn?.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       this.onOpenSettings?.();
+    });
+
+    const mapBtn = this.container.querySelector('#btn-hud-map');
+    mapBtn?.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      this.onOpenMap?.();
     });
 
     this.initQuickBar();

@@ -17,6 +17,7 @@ export interface InputState {
   isFirstPersonTogglePressed: boolean;
   isBuildMenuTogglePressed: boolean;
   isInventoryTogglePressed: boolean;
+  isMapTogglePressed: boolean;
   isEscapePressed: boolean;
 
   // Active quickslot (0 to 4)
@@ -38,6 +39,7 @@ export class InputManager {
     isFirstPersonTogglePressed: false,
     isBuildMenuTogglePressed: false,
     isInventoryTogglePressed: false,
+    isMapTogglePressed: false,
     isEscapePressed: false,
     activeQuickSlot: 0,
   };
@@ -194,6 +196,7 @@ export class InputManager {
           e.code === 'KeyR' ||
           e.code === 'KeyB' ||
           e.code === 'KeyI' ||
+          e.code === 'KeyM' ||
           e.code === 'Tab' ||
           e.code === 'Escape'
         ) {
@@ -207,6 +210,7 @@ export class InputManager {
       if (e.code === 'KeyF') this.state.isFirstPersonTogglePressed = true;
       if (e.code === 'KeyR') this.state.isRotatePressed = true;
       if (e.code === 'KeyB') this.state.isBuildMenuTogglePressed = true;
+      if (e.code === 'KeyM') this.state.isMapTogglePressed = true;
       if (e.code === 'KeyI' || e.code === 'Tab') {
         e.preventDefault();
         this.state.isInventoryTogglePressed = true;

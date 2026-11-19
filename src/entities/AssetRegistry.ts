@@ -59,6 +59,66 @@ export class AssetRegistry {
     return this.material;
   }
 
+  public getPropGeometry(propType: string): THREE.BufferGeometry {
+    switch (propType) {
+      case 'palm_tree':
+        return this.getCachedGeometry('palm_tree', () => {
+          const trunk = applySwatchUVs(new THREE.CylinderGeometry(0.2, 0.35, 6.0, 6), SWATCH_INDEX.AgedTimber);
+          trunk.translate(0, 3.0, 0);
+          const parts: THREE.BufferGeometry[] = [trunk];
+          for (let i = 0; i < 5; i++) {
+            const angle = (i / 5) * Math.PI * 2;
+            const frond = applySwatchUVs(new THREE.ConeGeometry(0.8, 3.2, 4), SWATCH_INDEX.PalmLeafGreen);
+            frond.rotateX(Math.PI / 2.8);
+            frond.translate(0, 0, 1.4);
+            frond.rotateY(angle);
+            frond.translate(0, 5.8, 0);
+            parts.push(frond);
+          }
+          return mergeGeometries(parts, false)!;
+        });
+      case 'rock':
+        return this.getCachedGeometry('rock_1.4', () =>
+          applySwatchUVs(new THREE.IcosahedronGeometry(1.4, 0), SWATCH_INDEX.WeatheredSlate)
+        );
+      case 'plastic_barrel':
+        return this.getCachedGeometry('barrel', () =>
+          applySwatchUVs(new THREE.CylinderGeometry(0.35, 0.35, 0.9, 8), SWATCH_INDEX.BuoyancyBlue)
+        );
+      case 'scrap_pile':
+        return this.getCachedGeometry('scrap_pile', () => {
+          const parts: THREE.BufferGeometry[] = [];
+          for (let i = 0; i < 3; i++) {
+            const plate = applySwatchUVs(new THREE.BoxGeometry(0.9, 0.15, 0.7), SWATCH_INDEX.OxidisedRust);
+            plate.rotateY(i * 0.8);
+            plate.translate((i - 1) * 0.3, i * 0.12, (i % 2) * 0.2);
+            parts.push(plate);
+          }
+          return mergeGeometries(parts, false)!;
+        });
+      case 'grass':
+        return this.getCachedGeometry('grass_tuft', () => {
+          const blade1 = applySwatchUVs(new THREE.ConeGeometry(0.25, 0.9, 3), SWATCH_INDEX.PalmLeafGreen);
+          blade1.translate(0, 0.45, 0);
+          const blade2 = applySwatchUVs(new THREE.ConeGeometry(0.2, 0.75, 3), SWATCH_INDEX.PalmLeafGreen);
+          blade2.rotateZ(0.25);
+          blade2.translate(0.15, 0.38, 0);
+          return mergeGeometries([blade1, blade2], false)!;
+        });
+      case 'shipping_container_red':
+        return this.getCachedGeometry('container_red', () =>
+          applySwatchUVs(new THREE.BoxGeometry(6.0, 2.6, 2.4), SWATCH_INDEX.IndustrialRed)
+        );
+      case 'shipping_container_blue':
+      case 'sunken_electronics':
+        return this.getCachedGeometry('container_blue', () =>
+          applySwatchUVs(new THREE.BoxGeometry(6.0, 2.6, 2.4), SWATCH_INDEX.IndustrialBlue)
+        );
+      default:
+        return this.createRock().geometry;
+    }
+  }
+
   private getCachedGeometry(key: string, factory: () => THREE.BufferGeometry): THREE.BufferGeometry {
     let geo = this.geoCache.get(key);
     if (!geo) {
