@@ -77,7 +77,7 @@ export class ChunkPropsManager {
     // Build InstancedMesh per prop type for batch rendering
     for (const [type, list] of byType.entries()) {
       const geo = this.assetReg.getPropGeometry(type);
-      const mat = this.assetReg.getAtlasMaterial();
+      const mat = this.assetReg.getPropMaterial(type);
       const instMesh = new THREE.InstancedMesh(geo, mat, list.length);
       instMesh.castShadow = true;
       instMesh.receiveShadow = true;

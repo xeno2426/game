@@ -83,6 +83,10 @@ export class Enemy {
     if (this.type === 'hound' && this.state === 'telegraph') {
       this.object.position.y = this.position.y + 0.15;
     }
+
+    if (this.object.userData.mixer) {
+      this.object.userData.mixer.update(dt);
+    }
   }
 
   private updateHound(

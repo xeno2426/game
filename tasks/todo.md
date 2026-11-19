@@ -224,16 +224,16 @@
 - [x] C13. Group C verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
 
 ### Group D: GLB Asset Pipeline and CC0 Models
-- [ ] D1. Add GLTFLoader and SkeletonUtils imports in src/entities/AssetRegistry.ts
-- [ ] D2. Create public/models directory and src/data/assetManifest.ts
-- [ ] D3. Download CC0 low-poly model packs (Kenney / Quaternius) covering trees, rocks, containers, barrels, tools, hound, survivor, lurker
-- [ ] D4. Document every asset in docs/ASSETS.md with file, source URL, author, CC0 license, and date
-- [ ] D5. Recolor GLB materials at load time to nearest palette tokens with MeshLambertMaterial and no neon colors
-- [ ] D6. Implement automatic fallback to procedural models if GLB is missing or fails to load
-- [ ] D7. Enforce triangle budgets (<800 tree, <300 rock, <3000 character) and file sizes (<250KB per file, <15MB total)
-- [ ] D8. Add .glb to Vite PWA workbox globPatterns and verify Capacitor compatibility
-- [ ] D9. Unit tests in tests/assetManifest.test.ts (manifest file existence, polycount budgets, ASSETS.md completeness, linter tests pass)
-- [ ] D10. Group D verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
+- [x] D1. Add GLTFLoader and SkeletonUtils imports in src/entities/AssetRegistry.ts
+- [x] D2. Create public/models directory and src/data/assetManifest.ts
+- [x] D3. Download CC0 low-poly model packs (Kenney / Quaternius) covering trees, rocks, containers, barrels, tools, hound, survivor, lurker
+- [x] D4. Document every asset in docs/ASSETS.md with file, source URL, author, CC0 license, and date
+- [x] D5. Recolor GLB materials at load time to nearest palette tokens with MeshLambertMaterial and no neon colors
+- [x] D6. Implement automatic fallback to procedural models if GLB is missing or fails to load
+- [x] D7. Enforce triangle budgets (<800 tree, <300 rock, <3000 character) and file sizes (<250KB per file, <15MB total)
+- [x] D8. Add .glb to Vite PWA workbox globPatterns and verify Capacitor compatibility
+- [x] D9. Unit tests in tests/assetManifest.test.ts (manifest file existence, polycount budgets, ASSETS.md completeness, linter tests pass)
+- [x] D10. Group D verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
 
 ### Group E: Verification, Performance Profiling and Final Report
 - [ ] E1. Run npx tsc --noEmit, npm run build, and npm test

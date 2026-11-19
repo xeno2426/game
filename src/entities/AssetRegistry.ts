@@ -1,6 +1,15 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { SWATCH_INDEX, getSwatchUVBounds, getSharedAtlasMaterial, PALETTE_COLORS } from '../data/palette';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import {
+  SWATCH_INDEX,
+  getSwatchUVBounds,
+  getSharedAtlasMaterial,
+  PALETTE_COLORS,
+  type PaletteKey,
+} from '../data/palette';
+import { ASSET_MANIFEST, type AssetManifestEntry } from '../data/assetManifest';
 
 export function applySwatchUVs(geometry: THREE.BufferGeometry, swatchIndex: number): THREE.BufferGeometry {
   geometry.computeBoundingBox();
@@ -39,10 +48,21 @@ export interface PlayerRig {
   weaponSocket: THREE.Group;
 }
 
+export interface AnimatedGlbEntry {
+  scene: THREE.Group;
+  animations: THREE.AnimationClip[];
+}
+
 export class AssetRegistry {
   private static instance: AssetRegistry;
   private material: THREE.MeshLambertMaterial;
   private geoCache = new Map<string, THREE.BufferGeometry>();
+
+  // Loaded GLB assets
+  private glbGeometries = new Map<string, THREE.BufferGeometry>();
+  private glbMaterials = new Map<string, THREE.Material>();
+  private glbTemplates = new Map<string, THREE.Object3D>();
+  private glbAnimated = new Map<string, AnimatedGlbEntry>();
 
   private constructor() {
     this.material = getSharedAtlasMaterial();
@@ -59,7 +79,171 @@ export class AssetRegistry {
     return this.material;
   }
 
+  public getPropMaterial(propType: string): THREE.Material {
+    if (this.glbMaterials.has(propType)) {
+      return this.glbMaterials.get(propType)!;
+    }
+    return this.material;
+  }
+
+  // Preload all manifest assets behind a progress callback
+  public async preload(onProgress?: (loaded: number, total: number) => void): Promise<void> {
+    const entries = Object.values(ASSET_MANIFEST);
+    const total = entries.length;
+    let loaded = 0;
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const loader = new GLTFLoader();
+
+    const loadEntry = (entry: AssetManifestEntry): Promise<void> => {
+      return new Promise((resolve) => {
+        loader.load(
+          entry.path,
+          (gltf) => {
+            try {
+              this.processLoadedAsset(entry, gltf);
+            } catch (err) {
+              console.warn(`Failed to process asset ${entry.id}:`, err);
+            }
+            loaded++;
+            if (onProgress) onProgress(loaded, total);
+            resolve();
+          },
+          undefined,
+          () => {
+            // Missing or network error: gracefully fall back to procedural
+            loaded++;
+            if (onProgress) onProgress(loaded, total);
+            resolve();
+          }
+        );
+      });
+    };
+
+    await Promise.all(entries.map((entry) => loadEntry(entry)));
+  }
+
+  private processLoadedAsset(entry: AssetManifestEntry, gltf: { scene: THREE.Group; animations?: THREE.AnimationClip[] }): void {
+    const scene = gltf.scene;
+    this.recolorAndConfigure(scene, entry);
+
+    if (entry.kind === 'instanced_static') {
+      const geoms: THREE.BufferGeometry[] = [];
+      scene.updateMatrixWorld(true);
+      let capturedMaterial: THREE.Material | null = null;
+
+      scene.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.geometry) {
+          const cloneGeo = child.geometry.clone();
+          cloneGeo.applyMatrix4(child.matrixWorld);
+          geoms.push(cloneGeo);
+          if (!capturedMaterial && child.material) {
+            capturedMaterial = child.material as THREE.Material;
+          }
+        }
+      });
+
+      if (geoms.length > 0) {
+        const merged = geoms.length === 1 ? geoms[0] : mergeGeometries(geoms, false);
+        if (merged) {
+          if (entry.scale) {
+            merged.scale(entry.scale[0], entry.scale[1], entry.scale[2]);
+          }
+          if (entry.rotation) {
+            merged.rotateX(entry.rotation[0]);
+            merged.rotateY(entry.rotation[1]);
+            merged.rotateZ(entry.rotation[2]);
+          }
+          if (entry.groundOffset) {
+            merged.translate(0, entry.groundOffset, 0);
+          }
+          merged.computeVertexNormals();
+          this.glbGeometries.set(entry.id, merged);
+          if (capturedMaterial) {
+            this.glbMaterials.set(entry.id, capturedMaterial);
+          }
+        }
+      }
+    } else if (entry.kind === 'unique') {
+      if (entry.scale) {
+        scene.scale.set(entry.scale[0], entry.scale[1], entry.scale[2]);
+      }
+      if (entry.rotation) {
+        scene.rotation.set(entry.rotation[0], entry.rotation[1], entry.rotation[2]);
+      }
+      if (entry.groundOffset) {
+        scene.position.y += entry.groundOffset;
+      }
+      this.glbTemplates.set(entry.id, scene);
+    } else if (entry.kind === 'animated') {
+      if (entry.scale) {
+        scene.scale.set(entry.scale[0], entry.scale[1], entry.scale[2]);
+      }
+      this.glbAnimated.set(entry.id, {
+        scene,
+        animations: gltf.animations || [],
+      });
+    }
+  }
+
+  private recolorAndConfigure(root: THREE.Object3D, entry: AssetManifestEntry): void {
+    root.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = entry.castShadow;
+        child.receiveShadow = entry.receiveShadow;
+
+        let targetKey: PaletteKey | null = null;
+        if (entry.paletteRemap) {
+          if (entry.paletteRemap[child.name]) {
+            targetKey = entry.paletteRemap[child.name];
+          } else if (entry.paletteRemap['default']) {
+            targetKey = entry.paletteRemap['default'];
+          }
+        }
+
+        if (!targetKey) {
+          const mat = child.material as { color?: THREE.Color };
+          if (mat && mat.color && typeof mat.color.r === 'number') {
+            targetKey = this.findNearestPaletteKey(mat.color);
+          }
+        }
+
+        const color = targetKey ? PALETTE_COLORS[targetKey] : PALETTE_COLORS.WeatheredSlate;
+        child.material = new THREE.MeshLambertMaterial({
+          color,
+        });
+      }
+    });
+  }
+
+  private findNearestPaletteKey(color: THREE.Color): PaletteKey {
+    let minDistanceSq = Infinity;
+    let bestKey: PaletteKey = 'WeatheredSlate';
+
+    for (const [key, palColor] of Object.entries(PALETTE_COLORS) as [PaletteKey, THREE.Color][]) {
+      const dr = color.r - palColor.r;
+      const dg = color.g - palColor.g;
+      const db = color.b - palColor.b;
+      const distSq = dr * dr + dg * dg + db * db;
+      if (distSq < minDistanceSq) {
+        minDistanceSq = distSq;
+        bestKey = key;
+      }
+    }
+
+    return bestKey;
+  }
+
   public getPropGeometry(propType: string): THREE.BufferGeometry {
+    // Return loaded GLB geometry if present
+    if (this.glbGeometries.has(propType)) {
+      return this.glbGeometries.get(propType)!;
+    }
+
+    // Automatic procedural fallback
     switch (propType) {
       case 'palm_tree':
         return this.getCachedGeometry('palm_tree', () => {
@@ -77,13 +261,37 @@ export class AssetRegistry {
           }
           return mergeGeometries(parts, false)!;
         });
+      case 'tree_jungle':
+        return this.getCachedGeometry('tree_jungle_proc', () => {
+          const trunk = applySwatchUVs(new THREE.CylinderGeometry(0.3, 0.45, 7.0, 6), SWATCH_INDEX.AgedTimber);
+          trunk.translate(0, 3.5, 0);
+          const top = applySwatchUVs(new THREE.ConeGeometry(2.2, 5.0, 5), SWATCH_INDEX.DeepJungle);
+          top.translate(0, 7.0, 0);
+          return mergeGeometries([trunk, top], false)!;
+        });
+      case 'tree_mangrove':
+        return this.getCachedGeometry('tree_mangrove_proc', () => {
+          const trunk = applySwatchUVs(new THREE.CylinderGeometry(0.25, 0.4, 5.0, 5), SWATCH_INDEX.AgedTimber);
+          trunk.translate(0, 2.5, 0);
+          const canopy = applySwatchUVs(new THREE.DodecahedronGeometry(1.8, 0), SWATCH_INDEX.PalmLeafGreen);
+          canopy.translate(0, 5.0, 0);
+          return mergeGeometries([trunk, canopy], false)!;
+        });
       case 'rock':
         return this.getCachedGeometry('rock_1.4', () =>
           applySwatchUVs(new THREE.IcosahedronGeometry(1.4, 0), SWATCH_INDEX.WeatheredSlate)
         );
+      case 'rock_highlands':
+        return this.getCachedGeometry('rock_highlands_proc', () =>
+          applySwatchUVs(new THREE.DodecahedronGeometry(2.2, 0), SWATCH_INDEX.WeatheredSlate)
+        );
       case 'plastic_barrel':
         return this.getCachedGeometry('barrel', () =>
           applySwatchUVs(new THREE.CylinderGeometry(0.35, 0.35, 0.9, 8), SWATCH_INDEX.BuoyancyBlue)
+        );
+      case 'crate':
+        return this.getCachedGeometry('crate_proc', () =>
+          applySwatchUVs(new THREE.BoxGeometry(0.8, 0.8, 0.8), SWATCH_INDEX.AgedTimber)
         );
       case 'scrap_pile':
         return this.getCachedGeometry('scrap_pile', () => {
@@ -228,8 +436,15 @@ export class AssetRegistry {
     };
   }
 
-  // Weapon: Scrap Axe (merged static geometry)
+  // Weapon: Scrap Axe
   public createScrapAxe(): THREE.Group {
+    const template = this.glbTemplates.get('scrap_axe');
+    if (template) {
+      const group = new THREE.Group();
+      group.add(template.clone());
+      return group;
+    }
+
     const geo = this.getCachedGeometry('scrap_axe', () => {
       const handle = applySwatchUVs(new THREE.CylinderGeometry(0.025, 0.03, 0.7, 5), SWATCH_INDEX.AgedTimber);
       handle.translate(0, 0.25, 0);
@@ -245,8 +460,15 @@ export class AssetRegistry {
     return group;
   }
 
-  // Weapon: Slingshot (merged static geometry)
+  // Weapon: Slingshot
   public createSlingshot(): THREE.Group {
+    const template = this.glbTemplates.get('slingshot');
+    if (template) {
+      const group = new THREE.Group();
+      group.add(template.clone());
+      return group;
+    }
+
     const geo = this.getCachedGeometry('slingshot', () => {
       const handle = applySwatchUVs(new THREE.CylinderGeometry(0.03, 0.03, 0.35, 5), SWATCH_INDEX.AgedTimber);
       const forkL = applySwatchUVs(new THREE.CylinderGeometry(0.02, 0.02, 0.2, 4), SWATCH_INDEX.AgedTimber);
@@ -265,26 +487,11 @@ export class AssetRegistry {
     return group;
   }
 
-  // Environment: Palm Tree (merged static trunk + 5 fronds)
+  // Environment: Palm Tree
   public createPalmTree(): THREE.Group {
-    const geo = this.getCachedGeometry('palm_tree', () => {
-      const trunk = applySwatchUVs(new THREE.CylinderGeometry(0.2, 0.35, 6.0, 6), SWATCH_INDEX.AgedTimber);
-      trunk.translate(0, 3.0, 0);
-
-      const parts: THREE.BufferGeometry[] = [trunk];
-      for (let i = 0; i < 5; i++) {
-        const angle = (i / 5) * Math.PI * 2;
-        const frond = applySwatchUVs(new THREE.ConeGeometry(0.8, 3.2, 4), SWATCH_INDEX.PalmLeafGreen);
-        frond.rotateX(Math.PI / 2.8);
-        frond.translate(0, 0, 1.4);
-        frond.rotateY(angle);
-        frond.translate(0, 5.8, 0);
-        parts.push(frond);
-      }
-      return mergeGeometries(parts, false)!;
-    });
-
-    const mesh = new THREE.Mesh(geo, this.material);
+    const geo = this.getPropGeometry('palm_tree');
+    const mat = this.getPropMaterial('palm_tree');
+    const mesh = new THREE.Mesh(geo, mat);
     mesh.castShadow = true;
     const group = new THREE.Group();
     group.add(mesh);
@@ -303,18 +510,24 @@ export class AssetRegistry {
     return mesh;
   }
 
-  // Environment: Plastic Barrel (Buoyancy Blue)
+  // Environment: Plastic Barrel
   public createPlasticBarrel(): THREE.Mesh {
-    const geo = this.getCachedGeometry('barrel', () =>
-      applySwatchUVs(new THREE.CylinderGeometry(0.35, 0.35, 0.9, 8), SWATCH_INDEX.BuoyancyBlue)
-    );
-    const mesh = new THREE.Mesh(geo, this.material);
+    const geo = this.getPropGeometry('plastic_barrel');
+    const mat = this.getPropMaterial('plastic_barrel');
+    const mesh = new THREE.Mesh(geo, mat);
     mesh.castShadow = true;
     return mesh;
   }
 
-  // Environment: Scrap Pile (merged static plates)
+  // Environment: Scrap Pile
   public createScrapPile(): THREE.Group {
+    const template = this.glbTemplates.get('scrap_pile');
+    if (template) {
+      const group = new THREE.Group();
+      group.add(template.clone());
+      return group;
+    }
+
     const geo = this.getCachedGeometry('scrap_pile', () => {
       const parts: THREE.BufferGeometry[] = [];
       for (let i = 0; i < 3; i++) {
@@ -335,12 +548,10 @@ export class AssetRegistry {
 
   // Environment: Sunken Shipping Container
   public createShippingContainer(isBlue = false): THREE.Mesh {
-    const key = isBlue ? 'container_blue' : 'container_red';
-    const swatch = isBlue ? SWATCH_INDEX.IndustrialBlue : SWATCH_INDEX.IndustrialRed;
-    const geo = this.getCachedGeometry(key, () =>
-      applySwatchUVs(new THREE.BoxGeometry(6.0, 2.6, 2.4), swatch)
-    );
-    const mesh = new THREE.Mesh(geo, this.material);
+    const key = isBlue ? 'shipping_container_blue' : 'shipping_container_red';
+    const geo = this.getPropGeometry(key);
+    const mat = this.getPropMaterial(key);
+    const mesh = new THREE.Mesh(geo, mat);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     return mesh;
@@ -357,7 +568,7 @@ export class AssetRegistry {
     return mesh;
   }
 
-  // Modular Base: Stilts (3m high, merged static geometry)
+  // Modular Base: Stilts (3m high)
   public createStiltsMesh(): THREE.Group {
     const geo = this.getCachedGeometry('stilts', () => {
       const parts: THREE.BufferGeometry[] = [];
@@ -403,7 +614,7 @@ export class AssetRegistry {
     return mesh;
   }
 
-  // Modular Base: Doorframe (merged static geometry)
+  // Modular Base: Doorframe
   public createDoorframeMesh(): THREE.Group {
     const geo = this.getCachedGeometry('doorframe', () => {
       const postL = applySwatchUVs(new THREE.BoxGeometry(0.9, 3.0, 0.2), SWATCH_INDEX.WeatheredDriftwood);
@@ -439,8 +650,15 @@ export class AssetRegistry {
     return mesh;
   }
 
-  // Survival Station: Campfire (8 stones merged + fire mesh)
+  // Survival Station: Campfire
   public createCampfire(): THREE.Group {
+    const template = this.glbTemplates.get('campfire');
+    if (template) {
+      const group = new THREE.Group();
+      group.add(template.clone());
+      return group;
+    }
+
     const stoneRingGeo = this.getCachedGeometry('campfire_stones', () => {
       const parts: THREE.BufferGeometry[] = [];
       for (let i = 0; i < 8; i++) {
@@ -470,7 +688,7 @@ export class AssetRegistry {
     return group;
   }
 
-  // Survival Station: Rain Collector (barrel + funnel merged static geometry)
+  // Survival Station: Rain Collector
   public createRainCollector(): THREE.Group {
     const geo = this.getCachedGeometry('rain_collector', () => {
       const barrel = applySwatchUVs(new THREE.CylinderGeometry(0.35, 0.35, 0.9, 8), SWATCH_INDEX.BuoyancyBlue);
@@ -490,8 +708,15 @@ export class AssetRegistry {
     return group;
   }
 
-  // Modular Raft (4 barrels + deck + mast + sail merged static geometry)
+  // Modular Raft
   public createRaft(): THREE.Group {
+    const template = this.glbTemplates.get('raft');
+    if (template) {
+      const group = new THREE.Group();
+      group.add(template.clone());
+      return group;
+    }
+
     const geo = this.getCachedGeometry('raft', () => {
       const parts: THREE.BufferGeometry[] = [];
       const barrelOffsets = [
@@ -530,8 +755,23 @@ export class AssetRegistry {
     return group;
   }
 
-  // Feral Hound (body + head + snout + 4 legs merged static geometry)
+  // Feral Hound
   public createHound(): THREE.Group {
+    const animated = this.glbAnimated.get('hound');
+    if (animated) {
+      const group = new THREE.Group();
+      const clone = SkeletonUtils.clone(animated.scene);
+      group.add(clone);
+      const mixer = new THREE.AnimationMixer(clone);
+      group.userData.mixer = mixer;
+      group.userData.clips = animated.animations;
+      if (animated.animations.length > 0) {
+        const action = mixer.clipAction(animated.animations[0]);
+        action.play();
+      }
+      return group;
+    }
+
     const geo = this.getCachedGeometry('hound', () => {
       const body = applySwatchUVs(new THREE.BoxGeometry(0.45, 0.45, 0.9), SWATCH_INDEX.MuddyOchre);
       body.translate(0, 0.55, 0);
@@ -566,8 +806,23 @@ export class AssetRegistry {
     return group;
   }
 
-  // Tide Lurker (body + fin merged static geometry + emissive eyes)
+  // Tide Lurker
   public createLurker(): THREE.Group {
+    const animated = this.glbAnimated.get('lurker');
+    if (animated) {
+      const group = new THREE.Group();
+      const clone = SkeletonUtils.clone(animated.scene);
+      group.add(clone);
+      const mixer = new THREE.AnimationMixer(clone);
+      group.userData.mixer = mixer;
+      group.userData.clips = animated.animations;
+      if (animated.animations.length > 0) {
+        const action = mixer.clipAction(animated.animations[0]);
+        action.play();
+      }
+      return group;
+    }
+
     const geo = this.getCachedGeometry('lurker_body', () => {
       const body = applySwatchUVs(new THREE.CylinderGeometry(0.2, 0.55, 1.8, 6), SWATCH_INDEX.KelpDark);
       body.rotateX(Math.PI / 2);

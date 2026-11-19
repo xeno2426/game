@@ -83,6 +83,7 @@ async function bootstrap() {
   const weather = new Weather(scene);
   const worldGen = WorldGen.get();
   await worldGen.init();
+  await AssetRegistry.get().preload();
   const terrain = new Terrain(scene, worldGen);
   const water = new Water(scene, worldGen);
   const player = new Player(scene);
