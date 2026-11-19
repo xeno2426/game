@@ -38,12 +38,12 @@
 - [x] Phase 3 verification: `npm run build`, profile memory/FPS, git commit & push
 
 ## Phase 4: Installable Progressive Web App (PWA)
-- [ ] Integrate `vite-plugin-pwa`
-- [ ] Configure web manifest (name, short_name, standalone display, landscape orientation, theme colors)
-- [ ] Generate high-resolution icons and maskable icons (192x192, 512x512)
-- [ ] Configure service worker caching strategy for complete offline play
-- [ ] Test production build (`npm run build`) and serve via `npm run preview -- --host`
-- [ ] Phase 4 verification: `npm run build`, verify PWA manifest in build, git commit & push
+- [x] Integrate `vite-plugin-pwa`
+- [x] Configure web manifest (name, short_name, standalone display, landscape orientation, theme colors)
+- [x] Generate high-resolution icons and maskable icons (192x192, 512x512)
+- [x] Configure service worker caching strategy for complete offline play
+- [x] Test production build (`npm run build`) and serve via `npm run preview -- --host`
+- [x] Phase 4 verification: `npm run build`, verify PWA manifest in build, git commit & push
 
 ## Phase 5: Capacitor Android & GitHub Actions CI/CD
 - [ ] Install Capacitor dependencies (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android`)

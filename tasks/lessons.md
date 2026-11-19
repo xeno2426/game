@@ -10,3 +10,4 @@
 | 2026-11-19 | TypeScript strict checking (`noUnusedLocals`) fails build on unused scratch variable declarations. | Ensure all scratch vectors/matrices declared for zero-allocation are actively utilized or removed before building. |
 | 2026-11-19 | TypeScript `verbatimModuleSyntax: true` fails builds when types/interfaces are imported without the `type` keyword. | Always use `import { type MyType }` or `import type { MyType }` for TypeScript types and interfaces. |
 | 2026-11-19 | Adding dozens of individual Three.js meshes to a scene causes high draw call counts on mobile. | Use `THREE.InstancedMesh` with object pooling and static dummy objects for transformations to render hundreds of entities in a single draw call without GC allocations. |
+| 2026-11-19 | PWA maskable icons will have edges cropped by Android OS adaptive icon shapes. | Ensure maskable icons keep important graphic content within a 70-80% inner safe circle against the background fill. |
