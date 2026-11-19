@@ -1,3 +1,5 @@
+export const APP_VERSION = '1.0.1';
+
 export const TIDE_CONSTANTS = {
   CYCLE_DURATION_SEC: 900, // 15 real-time minutes
   LOW_TIDE_DURATION_SEC: 600, // 10 minutes
