@@ -46,17 +46,17 @@
 - [x] Phase 4 verification: `npm run build`, verify PWA manifest in build, git commit & push
 
 ## Phase 5: Capacitor Android & GitHub Actions CI/CD
-- [ ] Install Capacitor dependencies (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android`)
-- [ ] Configure `capacitor.config.ts` (appId `com.xeno2426.game`, app name, `webDir: 'dist'`, base `./`)
-- [ ] Initialize Android native platform (`npx cap add android` and `npx cap sync`)
-- [ ] Create GitHub Actions workflow `.github/workflows/build-android.yml`
-  - [ ] Set up modern Node LTS
-  - [ ] Set up JDK (Java 21 required by modern Gradle/Capacitor)
-  - [ ] Run `npm ci` and `npm run build`
-  - [ ] Run `npx cap sync`
-  - [ ] Build Android debug APK (`./gradlew assembleDebug` in `android/`)
-  - [ ] Upload APK as downloadable artifact (`actions/upload-artifact`)
-- [ ] Phase 5 verification: `npm run build`, verify CI workflow syntax, git commit & push
+- [x] Install Capacitor dependencies (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android`)
+- [x] Configure `capacitor.config.ts` (appId `com.xeno2426.game`, app name, `webDir: 'dist'`, base `./`)
+- [x] Initialize Android native platform (`npx cap add android` and `npx cap sync`)
+- [x] Create GitHub Actions workflow `.github/workflows/build-android.yml`
+  - [x] Set up modern Node LTS
+  - [x] Set up JDK (Java 21 required by modern Gradle/Capacitor)
+  - [x] Run `npm ci` and `npm run build`
+  - [x] Run `npx cap sync`
+  - [x] Build Android debug APK (`./gradlew assembleDebug` in `android/`)
+  - [x] Upload APK as downloadable artifact (`actions/upload-artifact`)
+- [x] Phase 5 verification: `npm run build`, verify CI workflow syntax, git commit & push
 
 ---
 
