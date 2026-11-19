@@ -12,20 +12,20 @@
 - [x] Phase 1 verification: `npm run build`, test controls, git commit & push
 
 ## Phase 2: Gameplay Loop & Audio-Visual Polish
-- [ ] Escalating wave director: wave timer, spawn intervals, wave clear detection
-- [ ] 3 distinct enemy archetypes:
-  - [ ] Chaser (Scout): medium speed, direct pursuit
-  - [ ] Fast (Swarm): high speed, flanking/encircling
-  - [ ] Tank (Brute): slow, high HP, heavy impact
-- [ ] Bullet shooting system with collision detection and enemy damage flashing
-- [ ] XP gem drops from defeated enemies, magnetic attraction toward player, level progression
-- [ ] Inter-wave upgrade selection modal (choose 1 of 3 randomized perks)
-- [ ] Procedural Web Audio synthesizer (laser shot, impact, explosion, dash whoosh, level-up chime)
-- [ ] Trauma-based screen shake on hit/explosion
-- [ ] Vibration haptics (`navigator.vibrate`) on firing, damage, and level-up
-- [ ] HUD: health bar, wave counter, score, XP progress bar, persistent high score in `localStorage`
-- [ ] Game-over screen with final score, new high score banner, and restart button
-- [ ] Phase 2 verification: `npm run build`, git commit & push
+- [x] Escalating wave director: wave timer, spawn intervals, wave clear detection
+- [x] 3 distinct enemy archetypes:
+  - [x] Chaser (Scout): medium speed, direct pursuit
+  - [x] Fast (Swarm): high speed, flanking/encircling
+  - [x] Tank (Brute): slow, high HP, heavy impact
+- [x] Bullet shooting system with collision detection and enemy damage flashing
+- [x] XP gem drops from defeated enemies, magnetic attraction toward player, level progression
+- [x] Inter-wave upgrade selection modal (choose 1 of 3 randomized perks)
+- [x] Procedural Web Audio synthesizer (laser shot, impact, explosion, dash whoosh, level-up chime)
+- [x] Trauma-based screen shake on hit/explosion
+- [x] Vibration haptics (`navigator.vibrate`) on firing, damage, and level-up
+- [x] HUD: health bar, wave counter, score, XP progress bar, persistent high score in `localStorage`
+- [x] Game-over screen with final score, new high score banner, and restart button
+- [x] Phase 2 verification: `npm run build`, git commit & push
 
 ## Phase 3: Performance, Zero-Allocations & Architecture
 - [ ] Strict fixed-timestep loop (60 Hz) with delta accumulator and lag clamp

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 export interface AimAssistTarget {
   position: THREE.Vector3;
-  alive: boolean;
+  active: boolean;
 }
 
 export class InputSystem {
@@ -275,7 +275,7 @@ export class InputSystem {
 
     for (let i = 0; i < targets.length; i++) {
       const target = targets[i];
-      if (!target.alive) continue;
+      if (!target.active) continue;
 
       const toTarget = InputSystem._v2.subVectors(target.position, playerPos);
       toTarget.y = 0;
