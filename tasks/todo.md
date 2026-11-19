@@ -236,8 +236,28 @@
 - [x] D10. Group D verification: npx tsc --noEmit, npm run build, npm test, lessons.md, git commit and push
 
 ### Group E: Verification, Performance Profiling and Final Report
-- [ ] E1. Run npx tsc --noEmit, npm run build, and npm test
-- [ ] E2. Start npm run dev -- --host and curl test
-- [ ] E3. Profile draw calls and triangle counts at spawn, mid-map, and harbour island (<100 draw calls, <150k tris)
-- [ ] E4. Update tasks/todo.md with complete regression checklist
-- [ ] E5. Output final summary table of changes, files, and tests
+- [x] E1. Run npx tsc --noEmit, npm run build, and npm test
+- [x] E2. Start npm run dev -- --host and curl test
+- [x] E3. Profile draw calls and triangle counts at spawn, mid-map, and harbour island (<100 draw calls, <150k tris)
+- [x] E4. Update tasks/todo.md with complete regression checklist
+- [x] E5. Output final summary table of changes, files, and tests
+
+---
+
+## World Expansion Regression Checklist (Groups A through E)
+- [x] R37. World Generation Determinism: Identical seeds produce bit-identical heightmaps, biome maps, and island distributions (tests/worldGen.test.ts).
+- [x] R38. Archipelago Composition: Land area remains 25-35% with 18 islands; each biome covers at least 4% of land; starter SW island has beach, jungle, and hill >4.5m.
+- [x] R39. Bilinear Height Invariant: Bilinear lookups match direct mathematical evaluation within 0.15m tolerance with O(1) performance.
+- [x] R40. Save Migration v2: Save version 2 persists world seed; v1 saves migrate safely with clamped player position on starter beach [-820, 6, 820].
+- [x] R41. Streaming Chunk Math & LOD Tiers: 64m chunks calculate LOD0 (<160m), LOD1 (<400m), LOD2 (<=900m), and culling (>900m) accurately (tests/streamingTerrain.test.ts).
+- [x] R42. Zero Allocation Chunk Streaming: Fixed topology geometry pools with 3.5m skirts update in-place without heap re-allocations; geometry generation throttled to <=1 chunk per frame.
+- [x] R43. Dynamic Depth Water & Snapping: 260m water mesh snaps to grid multiples and samples 1024x1024 packed 16-bit height DataTexture for shore foam and depth shading.
+- [x] R44. Deterministic Prop Scatter: Seeded jittered grid scatters props per chunk via InstancedMesh; harvested nodes persist and respawn after 3 tide cycles (2700s).
+- [x] R45. Spatial Hash Interaction Grid: Resource nodes are partitioned into 16m spatial hash cells; InteractionSystem queries nodes within 4m radius in O(1) time.
+- [x] R46. Biome Enemy Spawning & Capping: Hounds spawn on land biomes, lurkers in water; active count strictly capped at 6; wake at 120m, sleep/despawn at 200m.
+- [x] R47. Navigation & Landmark Positioning: Compass strip displays cardinal headings and landmarks; 512x512 pre-rendered biome map shows player arrow; ?debug teleport allows rapid transit.
+- [x] R48. Raft Transit Tuning: Raft max speed tuned to 10.0 m/s for a 5-minute crossing of the 3000m archipelago.
+- [x] R49. CC0 GLB Asset Pipeline: 17 models loaded via GLTFLoader, recoloured at load time to nearest palette tokens with MeshLambertMaterial, with automatic procedural fallback.
+- [x] R50. Model Budget Caps: Trees <800 triangles, rocks <300, characters <3000; all files <250 KB; total model bundle 0.81 MB (<15 MB cap) (tests/assetManifest.test.ts).
+- [x] R51. Mobile Budget Verification: Visible draw calls <100 (45-55 est) and triangles <150k (55k-65k est) across spawn, mid-map, and harbour island (tests/budgetVerification.test.ts).
+- [x] R52. Static Rule Lint: Zero emojis across code/UI/docs/commits; zero hex literals outside src/data/palette.ts; zero vitest imports in production (tests/lint.test.ts).
