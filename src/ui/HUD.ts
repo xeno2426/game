@@ -13,13 +13,32 @@ export class HUD {
   private quickSlots: HTMLElement[] = [];
   private interactPrompt: HTMLElement;
   private onSelectQuickSlot?: (index: number) => void;
+  private onOpenSettings?: () => void;
 
-  constructor(onSelectQuickSlot?: (index: number) => void) {
+  // DOM thrash reduction state caches (B7)
+  private prevHealth = -1;
+  private prevHydration = -1;
+  private prevHunger = -1;
+  private prevExposure = -1;
+  private lastVitalsUpdate = 0;
+
+  private prevTideFormatted = '';
+  private prevTideWarning = false;
+  private lastTideUpdate = 0;
+
+  private prevPromptText: string | null = null;
+  private prevSlotsHash = '';
+
+  constructor(
+    onSelectQuickSlot?: (index: number) => void,
+    onOpenSettings?: () => void
+  ) {
     this.onSelectQuickSlot = onSelectQuickSlot;
+    this.onOpenSettings = onOpenSettings;
     this.container = document.createElement('div');
     this.container.className = 'hud-layer';
     this.container.innerHTML = `
-      <!-- Top Bar: Vitals and Tide -->
+      <!-- Top Bar: Vitals, Tide & Settings -->
       <div class="top-hud-bar">
         <div class="ui-panel vitals-cluster hud-interactive">
           <div class="vital-row">
@@ -48,9 +67,14 @@ export class HUD {
           </div>
         </div>
 
-        <div id="tide-panel" class="ui-panel tide-panel hud-interactive">
-          <div class="tide-indicator"></div>
-          <span id="tide-time-text">LOW TIDE (10:00)</span>
+        <div style="display: flex; gap: 8px; align-items: center; pointer-events: none;">
+          <div id="tide-panel" class="ui-panel tide-panel hud-interactive">
+            <div class="tide-indicator"></div>
+            <span id="tide-time-text">LOW TIDE (10:00)</span>
+          </div>
+          <button id="btn-hud-settings" class="ui-panel hud-interactive" title="Graphics Settings" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; padding: 0;">
+            ${getSvgIcon('settings', 20)}
+          </button>
         </div>
       </div>
 
@@ -74,6 +98,12 @@ export class HUD {
     this.tidePanel = this.container.querySelector('#tide-panel') as HTMLElement;
     this.tideTimeText = this.container.querySelector('#tide-time-text') as HTMLElement;
     this.interactPrompt = this.container.querySelector('#interact-prompt') as HTMLElement;
+
+    const settingsBtn = this.container.querySelector('#btn-hud-settings');
+    settingsBtn?.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      this.onOpenSettings?.();
+    });
 
     this.initQuickBar();
   }
@@ -101,25 +131,61 @@ export class HUD {
   }
 
   public updateVitals(health: number, hydration: number, hunger: number, exposure: number): void {
-    this.healthFill.style.width = `${Math.max(0, Math.min(100, health))}%`;
-    this.hydrationFill.style.width = `${Math.max(0, Math.min(100, hydration))}%`;
-    this.hungerFill.style.width = `${Math.max(0, Math.min(100, hunger))}%`;
-    this.exposureFill.style.width = `${Math.max(0, Math.min(100, exposure))}%`;
+    const now = performance.now();
+    // At most 10 times a second (10 Hz throttle) (B7)
+    if (now - this.lastVitalsUpdate < 100) return;
+    this.lastVitalsUpdate = now;
+
+    const rHealth = Math.round(Math.max(0, Math.min(100, health)) * 10) / 10;
+    const rHydration = Math.round(Math.max(0, Math.min(100, hydration)) * 10) / 10;
+    const rHunger = Math.round(Math.max(0, Math.min(100, hunger)) * 10) / 10;
+    const rExposure = Math.round(Math.max(0, Math.min(100, exposure)) * 10) / 10;
+
+    if (rHealth !== this.prevHealth) {
+      this.healthFill.style.width = `${rHealth}%`;
+      this.prevHealth = rHealth;
+    }
+    if (rHydration !== this.prevHydration) {
+      this.hydrationFill.style.width = `${rHydration}%`;
+      this.prevHydration = rHydration;
+    }
+    if (rHunger !== this.prevHunger) {
+      this.hungerFill.style.width = `${rHunger}%`;
+      this.prevHunger = rHunger;
+    }
+    if (rExposure !== this.prevExposure) {
+      this.exposureFill.style.width = `${rExposure}%`;
+      this.prevExposure = rExposure;
+    }
   }
 
   public updateTide(phase: 'low' | 'warning' | 'high', timeRemainingSec: number): void {
+    const now = performance.now();
+    if (now - this.lastTideUpdate < 100) return;
+    this.lastTideUpdate = now;
+
     const mins = Math.floor(timeRemainingSec / 60);
     const secs = Math.floor(timeRemainingSec % 60);
     const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
-    this.tidePanel.classList.toggle('warning', phase === 'warning');
+    const isWarning = phase === 'warning';
+    if (isWarning !== this.prevTideWarning) {
+      this.tidePanel.classList.toggle('warning', isWarning);
+      this.prevTideWarning = isWarning;
+    }
 
+    let text = '';
     if (phase === 'warning') {
-      this.tideTimeText.textContent = `TIDE WARNING (${formatted})`;
+      text = `TIDE WARNING (${formatted})`;
     } else if (phase === 'high') {
-      this.tideTimeText.textContent = `HIGH TIDE (${formatted})`;
+      text = `HIGH TIDE (${formatted})`;
     } else {
-      this.tideTimeText.textContent = `LOW TIDE (${formatted})`;
+      text = `LOW TIDE (${formatted})`;
+    }
+
+    if (text !== this.prevTideFormatted) {
+      this.tideTimeText.textContent = text;
+      this.prevTideFormatted = text;
     }
   }
 
@@ -127,6 +193,16 @@ export class HUD {
     slots: { itemId: string | null; count: number }[],
     activeIndex: number
   ): void {
+    // Generate fast key hash to skip DOM updates if unchanged
+    let hash = `${activeIndex}`;
+    for (let i = 0; i < 5; i++) {
+      const s = slots[i];
+      hash += `|${s ? s.itemId : ''}:${s ? s.count : 0}`;
+    }
+
+    if (hash === this.prevSlotsHash) return;
+    this.prevSlotsHash = hash;
+
     for (let i = 0; i < 5; i++) {
       const el = this.quickSlots[i];
       if (!el) continue;
@@ -153,6 +229,9 @@ export class HUD {
   }
 
   public showInteractPrompt(text: string | null): void {
+    if (text === this.prevPromptText) return;
+    this.prevPromptText = text;
+
     if (text) {
       this.interactPrompt.style.display = 'block';
       const t = this.interactPrompt.querySelector('#interact-text');

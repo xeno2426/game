@@ -4,35 +4,39 @@ export class GameLoop {
   private lastTime = 0;
   private accumulator = 0;
   private readonly fixedTimestep = 1 / 60; // 60Hz fixed simulation rate
-  private readonly maxFrameTime = 0.2; // Clamp against catch-up spirals
+  private readonly maxFrameTime = 0.1; // Max 100ms clamp against spirals
 
   private updateFn: (dt: number) => void;
-  private renderFn: (alpha: number) => void;
+  private renderFn: (alpha: number, frameDt: number) => void;
   private boundTick: (now: number) => void;
 
   constructor(
     updateFn: (dt: number) => void,
-    renderFn: (alpha: number) => void
+    renderFn: (alpha: number, frameDt: number) => void
   ) {
     this.updateFn = updateFn;
     this.renderFn = renderFn;
     this.boundTick = this.tick.bind(this);
 
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        this.isPaused = true;
-      } else {
-        this.isPaused = false;
-        this.lastTime = performance.now();
-      }
-    });
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          this.isPaused = true;
+        } else {
+          this.isPaused = false;
+          this.lastTime = performance.now();
+        }
+      });
+    }
   }
 
   public start(): void {
     if (this.isRunning) return;
     this.isRunning = true;
     this.lastTime = performance.now();
-    requestAnimationFrame(this.boundTick);
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(this.boundTick);
+    }
   }
 
   public stop(): void {
@@ -44,28 +48,39 @@ export class GameLoop {
 
     if (this.isPaused) {
       this.lastTime = now;
-      requestAnimationFrame(this.boundTick);
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(this.boundTick);
+      }
       return;
     }
 
     let elapsed = (now - this.lastTime) / 1000;
     this.lastTime = now;
 
-    // Clamp against lag spikes and tab suspension spirals
+    // Clamp against lag spikes and tab suspension spirals (B2)
     if (elapsed > this.maxFrameTime) {
       elapsed = this.maxFrameTime;
     }
 
     this.accumulator += elapsed;
 
-    while (this.accumulator >= this.fixedTimestep) {
+    // Cap fixed steps at 3 per frame and drop remainder (B2)
+    let steps = 0;
+    while (this.accumulator >= this.fixedTimestep && steps < 3) {
       this.updateFn(this.fixedTimestep);
       this.accumulator -= this.fixedTimestep;
+      steps++;
+    }
+
+    if (this.accumulator >= this.fixedTimestep) {
+      this.accumulator = 0;
     }
 
     const alpha = this.accumulator / this.fixedTimestep;
-    this.renderFn(alpha);
+    this.renderFn(alpha, elapsed);
 
-    requestAnimationFrame(this.boundTick);
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(this.boundTick);
+    }
   }
 }

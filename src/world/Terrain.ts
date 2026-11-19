@@ -19,10 +19,8 @@ export class Terrain {
 
     this.generateTerrainGeometry();
 
-    const material = new THREE.MeshStandardMaterial({
+    const material = new THREE.MeshLambertMaterial({
       vertexColors: true,
-      roughness: 0.9,
-      metalness: 0.05,
       flatShading: true, // Stylized low-poly aesthetic
     });
 

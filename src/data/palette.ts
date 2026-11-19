@@ -203,15 +203,13 @@ export function getSwatchUVBounds(swatchIndex: number, paddingPx = 2.5): SwatchU
   };
 }
 
-let sharedAtlasMaterial: THREE.MeshStandardMaterial | null = null;
+let sharedAtlasMaterial: THREE.MeshLambertMaterial | null = null;
 
-export function getSharedAtlasMaterial(): THREE.MeshStandardMaterial {
+export function getSharedAtlasMaterial(): THREE.MeshLambertMaterial {
   if (!sharedAtlasMaterial) {
     const atlas = getPaletteAtlasTexture();
-    sharedAtlasMaterial = new THREE.MeshStandardMaterial({
+    sharedAtlasMaterial = new THREE.MeshLambertMaterial({
       map: atlas,
-      roughness: 0.85,
-      metalness: 0.1,
     });
   }
   return sharedAtlasMaterial;

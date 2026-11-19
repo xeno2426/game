@@ -48,14 +48,13 @@ export class Water {
         }
 
         void main() {
-          vec3 pos = position;
-          pos.y = uWaterLevel;
+          // Compute world position before displacement
+          vec4 worldPos = modelMatrix * vec4(position.x, uWaterLevel, position.z, 1.0);
 
-          float wave = computeWave(pos.x, pos.z, uTime);
-          pos.y += wave;
+          // Waves depend on invariant world coordinates, eliminating sliding during grid snapping (B6)
+          float wave = computeWave(worldPos.x, worldPos.z, uTime);
+          worldPos.y += wave;
           vWave = wave;
-
-          vec4 worldPos = modelMatrix * vec4(pos, 1.0);
           vWorldPos = worldPos.xyz;
 
           gl_Position = projectionMatrix * viewMatrix * worldPos;
@@ -104,9 +103,15 @@ export class Water {
     scene.add(this.mesh);
   }
 
-  public update(timeSec: number, waterLevel: number): void {
+  public update(timeSec: number, waterLevel: number, playerPos?: THREE.Vector3): void {
     this.material.uniforms.uTime.value = timeSec;
     this.material.uniforms.uWaterLevel.value = waterLevel;
+    if (playerPos) {
+      // Snap water mesh to its grid so vertices align and edges never appear (B6)
+      const gridSize = this.size / this.segments;
+      this.mesh.position.x = Math.floor(playerPos.x / gridSize) * gridSize;
+      this.mesh.position.z = Math.floor(playerPos.z / gridSize) * gridSize;
+    }
     this.mesh.position.y = 0;
   }
 

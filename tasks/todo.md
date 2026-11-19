@@ -142,16 +142,16 @@
 - [x] Group A verification: npx tsc --noEmit, npm run build, npm test, npm run test:ui, lessons.md, commit and push
 
 ## Group B: Smoothness
-- [ ] B1: Render with transform interpolation at loop alpha for player, enemies, raft; frame-rate independent camera smoothing with 1 - exp(-k * frameDt)
-- [ ] B2: Cap fixed steps at 3 per frame and drop remainder, maxFrameTime 0.1
-- [ ] B3: Directional sun shadow: fixed offset from target, texel grid snapping, tight far plane, PCFShadowMap, toggleable shadows on Low preset
-- [ ] B4: QualityManager with Low, Medium, High presets saved to IndexedDB, Settings panel in pause menu, default pixel ratio min(devicePixelRatio, 1.5), touch antialias off, dynamic resolution scaling (0.75-1.5) and shadow throttle
-- [ ] B5: Replace MeshStandardMaterial with MeshLambertMaterial on terrain, props, characters; share material and cached geometries in AssetRegistry; merge static geometries per prop
-- [ ] B6: Water mesh follows player snapped to vertex grid
-- [ ] B7: DOM thrash prevention: vitals, tide label, prompt, quick bar update only on change at max 10Hz; joystick styles only on change; debug overlay at 2Hz via textContent
-- [ ] B8: GPU shader rain with time uniform (zero CPU loops or per-tick buffer uploads)
-- [ ] B9: Extend ?debug overlay with average/p95 frame time, frames over 25ms in last 10s, quality preset and pixel ratio
-- [ ] Group B verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
+- [x] B1: Render with transform interpolation at loop alpha for player, enemies, raft; frame-rate independent camera smoothing with 1 - exp(-k * frameDt)
+- [x] B2: Cap fixed steps at 3 per frame and drop remainder, maxFrameTime 0.1
+- [x] B3: Directional sun shadow: fixed offset from target, texel grid snapping, tight far plane, PCFShadowMap, toggleable shadows on Low preset
+- [x] B4: QualityManager with Low, Medium, High presets saved to IndexedDB, Settings panel in pause menu, default pixel ratio min(devicePixelRatio, 1.5), touch antialias off, dynamic resolution scaling (0.75-1.5) and shadow throttle
+- [x] B5: Replace MeshStandardMaterial with MeshLambertMaterial on terrain, props, characters; share material and cached geometries in AssetRegistry; merge static geometries per prop
+- [x] B6: Water mesh follows player snapped to vertex grid
+- [x] B7: DOM thrash prevention: vitals, tide label, prompt, quick bar update only on change at max 10Hz; joystick styles only on change; debug overlay at 2Hz via textContent
+- [x] B8: GPU shader rain with time uniform (zero CPU loops or per-tick buffer uploads)
+- [x] B9: Extend ?debug overlay with average/p95 frame time, frames over 25ms in last 10s, quality preset and pixel ratio
+- [x] Group B verification: npx tsc --noEmit, npm run build, npm test, npm run test:ui, lessons.md, commit and push
 
 ## Group C: Verification & Final Report
 - [ ] Build, tests, test:ui verification

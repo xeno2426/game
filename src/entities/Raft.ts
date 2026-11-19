@@ -6,10 +6,12 @@ import { RAFT_CONSTANTS } from '../data/constants';
 export class Raft {
   public object: THREE.Group;
   public position: THREE.Vector3;
+  public prevPosition: THREE.Vector3;
   public velocity: THREE.Vector3 = new THREE.Vector3();
   public deltaDisplacement = new THREE.Vector3();
   public deckHeight = 0.3;
   public rotationY = 0;
+  public prevRotationY = 0;
   public isPlayerBoarded = false;
   private barrelHeights = new Float32Array(4);
 
@@ -22,12 +24,16 @@ export class Raft {
 
   constructor(startPos: THREE.Vector3, scene: THREE.Scene) {
     this.position = startPos.clone();
+    this.prevPosition = startPos.clone();
     this.object = AssetRegistry.get().createRaft();
     this.object.position.copy(this.position);
     scene.add(this.object);
   }
 
   public update(dt: number, timeSec: number, waterLevel: number, steerInput: { moveX: number; moveZ: number }): void {
+    this.prevPosition.copy(this.position);
+    this.prevRotationY = this.rotationY;
+
     const prevX = this.position.x;
     const prevZ = this.position.z;
 
@@ -78,5 +84,13 @@ export class Raft {
 
     this.object.position.copy(this.position);
     this.object.rotation.y = this.rotationY;
+  }
+
+  public render(alpha: number): void {
+    this.object.position.lerpVectors(this.prevPosition, this.position, alpha);
+    let diff = this.rotationY - this.prevRotationY;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    this.object.rotation.y = this.prevRotationY + diff * alpha;
   }
 }

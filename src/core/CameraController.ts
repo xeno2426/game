@@ -40,9 +40,9 @@ export class CameraController {
     this.isFirstPerson = !this.isFirstPerson;
   }
 
-  public update(playerPos: THREE.Vector3, dt: number): void {
-    // Smooth angle damping
-    const damp = Math.min(1.0, dt * 14.0);
+  public update(playerPos: THREE.Vector3, frameDt: number): void {
+    // Frame-rate independent camera smoothing (1 - exp(-k * frameDt)) to eliminate 90/120Hz judder (B1)
+    const damp = 1.0 - Math.exp(-14.0 * frameDt);
     this.yaw += (this.targetYaw - this.yaw) * damp;
     this.pitch += (this.targetPitch - this.pitch) * damp;
 

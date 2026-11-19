@@ -23,6 +23,8 @@ import { TouchControls } from './ui/TouchControls';
 import { InventoryUI } from './ui/InventoryUI';
 import { BuildMenuUI } from './ui/BuildMenuUI';
 import { DebugOverlay } from './ui/DebugOverlay';
+import { QualityManager } from './core/QualityManager';
+import { SettingsUI } from './ui/SettingsUI';
 import { SoundSynth } from './audio/SoundSynth';
 import { BUDGET_CONSTANTS } from './data/constants';
 
@@ -35,15 +37,15 @@ async function bootstrap() {
   canvas.id = 'game-canvas';
   document.getElementById('app')?.appendChild(canvas);
 
+  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
+    antialias: !isTouchDevice,
     powerPreference: 'high-performance',
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
 
   const scene = new THREE.Scene();
 
@@ -81,11 +83,19 @@ async function bootstrap() {
   const cameraController = new CameraController(window.innerWidth / window.innerHeight);
   const inputManager = new InputManager();
 
-  const hud = new HUD((slotIndex) => {
-    inputManager.state.activeQuickSlot = slotIndex;
-    craftingSystem.setActiveQuickSlot(slotIndex);
-    buildingSystem.selectBlueprint(null);
-  });
+  const qualityManager = new QualityManager(renderer, dirLight);
+  const settingsUI = new SettingsUI(qualityManager);
+
+  const hud = new HUD(
+    (slotIndex) => {
+      inputManager.state.activeQuickSlot = slotIndex;
+      craftingSystem.setActiveQuickSlot(slotIndex);
+      buildingSystem.selectBlueprint(null);
+    },
+    () => {
+      settingsUI.toggle();
+    }
+  );
   const vitalsSystem = new VitalsSystem(hud);
   const interactionSystem = new InteractionSystem(hud);
   const craftingSystem = new CraftingSystem(hud);
@@ -321,8 +331,8 @@ async function bootstrap() {
 
   const gameLoop = new GameLoop(
     (dt: number) => {
-      // Pause simulation while inventory or build menus are open (A7)
-      if (inventoryUI.isOpen || buildMenuUI.isOpen) {
+      // Pause simulation while inventory, build, or settings menus are open (A7, B4)
+      if (inventoryUI.isOpen || buildMenuUI.isOpen || settingsUI.isOpen) {
         inputManager.update();
         if (inputManager.state.isInventoryTogglePressed) {
           inventoryUI.close();
@@ -333,6 +343,7 @@ async function bootstrap() {
           inputManager.state.isBuildMenuTogglePressed = false;
         }
         if (inputManager.state.isEscapePressed) {
+          settingsUI.close();
           inventoryUI.close();
           buildMenuUI.close();
           inputManager.state.isEscapePressed = false;
@@ -598,28 +609,54 @@ async function bootstrap() {
         });
       }
     },
-    (_alpha: number) => {
+    (alpha: number, frameDt: number) => {
       touchControls.update();
 
-      // Camera drag & look-at
+      // Entity transform interpolation at alpha (B1)
+      const renderPos = player.render(alpha);
+      hound.render(alpha);
+      lurker.render(alpha);
+      raft.render(alpha);
+
+      // Camera drag & look-at with real frameDt and interpolated player position (B1)
       const { dx, dy } = inputManager.consumeCameraDelta();
       cameraController.handleDrag(dx, dy);
-      cameraController.update(player.position, 1 / 60);
+      cameraController.update(renderPos, frameDt);
 
-      // Light target follows player for shadow fidelity within 40m
-      dirLight.target.position.set(player.position.x, player.position.y, player.position.z);
-      dirLight.target.updateMatrixWorld();
+      // Water mesh follows player, snapped to grid (B6)
+      water.update(accumulatedTime, tideSystem.state.waterLevel, renderPos);
+
+      // Shadows (B3): place sun at target + fixed offset so light direction never changes.
+      // Snap shadow target to shadow texel grid to stop shimmer.
+      if (qualityManager.shadowsEnabled) {
+        const shadowTexelSize = (2 * BUDGET_CONSTANTS.SHADOW_MAX_DISTANCE) / BUDGET_CONSTANTS.SHADOW_MAP_SIZE;
+        const targetX = Math.floor(renderPos.x / shadowTexelSize) * shadowTexelSize;
+        const targetZ = Math.floor(renderPos.z / shadowTexelSize) * shadowTexelSize;
+        const targetY = renderPos.y;
+        dirLight.target.position.set(targetX, targetY, targetZ);
+        dirLight.target.updateMatrixWorld();
+        dirLight.position.set(targetX + 45, targetY + 60, targetZ + 35);
+        dirLight.shadow.camera.near = 20;
+        dirLight.shadow.camera.far = 110;
+        dirLight.shadow.camera.updateProjectionMatrix();
+      }
+
+      // Dynamic resolution scaling & frame recording (B4)
+      qualityManager.recordFrame(frameDt * 1000, accumulatedTime);
 
       // Render Three.js Scene
       renderer.render(scene, cameraController.camera);
 
-      // Debug overlay update
+      // Debug overlay update at 2 Hz (B7, B9)
+      debugOverlay.recordFrame(frameDt * 1000);
       debugOverlay.update(
         renderer,
         tideSystem.state.phase,
         tideSystem.timeInCycle,
         tideSystem.state.waterLevel,
-        player.position
+        renderPos,
+        qualityManager.currentPreset,
+        qualityManager.currentPixelRatio
       );
     }
   );

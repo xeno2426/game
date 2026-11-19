@@ -8,8 +8,10 @@ import type { Terrain } from '../world/Terrain';
 export class Player {
   public rig: PlayerRig;
   public position: THREE.Vector3 = new THREE.Vector3(0, 8, 12);
+  public prevPosition: THREE.Vector3 = new THREE.Vector3(0, 8, 12);
   public velocity: THREE.Vector3 = new THREE.Vector3();
   public rotationY = 0;
+  public prevRotationY = 0;
 
   public isGrounded = true;
   public isSwimming = false;
@@ -31,6 +33,7 @@ export class Player {
   private _dodgeDir = new THREE.Vector3();
   private _forward = new THREE.Vector3();
   private _right = new THREE.Vector3();
+  private _renderPos = new THREE.Vector3();
 
   constructor(scene: THREE.Scene) {
     this.rig = AssetRegistry.get().createPlayerMesh();
@@ -79,6 +82,10 @@ export class Player {
       resolveHorizontalCollision: (pos: { x: number; y: number; z: number }, radius: number) => boolean;
     }
   ): { staminaCost: number; dodgeCost: number; hasAttacked: boolean } {
+    // Record previous transform for render interpolation at alpha (B1)
+    this.prevPosition.copy(this.position);
+    this.prevRotationY = this.rotationY;
+
     let staminaCost = 0;
     let dodgeCost = 0;
     let hasAttacked = false;
@@ -270,5 +277,17 @@ export class Player {
     // Torso idle breathing / bounce
     const bounce = isMoving ? Math.abs(Math.cos(this.animTime)) * 0.08 : Math.sin(this.animTime * 1.5) * 0.02;
     this.rig.torso.position.y = 1.05 + bounce;
+  }
+
+  public render(alpha: number): THREE.Vector3 {
+    this._renderPos.lerpVectors(this.prevPosition, this.position, alpha);
+    this.rig.root.position.copy(this._renderPos);
+
+    let diff = this.rotationY - this.prevRotationY;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    this.rig.root.rotation.y = this.prevRotationY + diff * alpha;
+
+    return this._renderPos;
   }
 }

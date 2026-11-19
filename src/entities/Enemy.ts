@@ -12,7 +12,9 @@ export class Enemy {
   public type: EnemyType;
   public object: THREE.Group;
   public position: THREE.Vector3;
+  public prevPosition: THREE.Vector3;
   public rotationY = 0;
+  public prevRotationY = 0;
   public health: number;
   public maxHealth: number;
   public state: EnemyState = 'idle';
@@ -27,6 +29,7 @@ export class Enemy {
     this.id = id;
     this.type = type;
     this.position = startPos.clone();
+    this.prevPosition = startPos.clone();
 
     if (type === 'hound') {
       this.object = AssetRegistry.get().createHound();
@@ -62,6 +65,9 @@ export class Enemy {
     onPlayerHit: (damage: number) => void
   ): void {
     if (this.isDead) return;
+
+    this.prevPosition.copy(this.position);
+    this.prevRotationY = this.rotationY;
 
     const distToPlayer = this.position.distanceTo(playerPos);
 
@@ -180,5 +186,14 @@ export class Enemy {
 
     // Lurker floats on water surface
     this.position.y = waterLevel - 0.4;
+  }
+
+  public render(alpha: number): void {
+    if (this.isDead) return;
+    this.object.position.lerpVectors(this.prevPosition, this.position, alpha);
+    let diff = this.rotationY - this.prevRotationY;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    this.object.rotation.y = this.prevRotationY + diff * alpha;
   }
 }

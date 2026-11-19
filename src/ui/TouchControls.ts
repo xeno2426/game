@@ -9,6 +9,14 @@ export class TouchControls {
   private attackBtn: HTMLElement | null = null;
   private isBuildMode = false;
 
+  // Joystick DOM diff caching (B7)
+  private prevJoyActive = false;
+  private prevJoyOriginX = -999;
+  private prevJoyOriginY = -999;
+  private prevKnobDx = -999;
+  private prevKnobDy = -999;
+  private prevSprinting = false;
+
   constructor(inputManager: InputManager) {
     this.inputManager = inputManager;
 
@@ -162,22 +170,38 @@ export class TouchControls {
   }
 
   public update(): void {
-    if (this.inputManager.isJoystickActive) {
-      this.joystickEl.style.display = 'block';
-      this.joystickEl.style.left = `${this.inputManager.joystickOrigin.x}px`;
-      this.joystickEl.style.top = `${this.inputManager.joystickOrigin.y}px`;
-
-      const dx = this.inputManager.joystickThumb.x - this.inputManager.joystickOrigin.x;
-      const dy = this.inputManager.joystickThumb.y - this.inputManager.joystickOrigin.y;
-      this.joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-
-      if (this.inputManager.state.isSprinting) {
-        this.joystickEl.classList.add('sprinting');
-      } else {
-        this.joystickEl.classList.remove('sprinting');
+    const isActive = this.inputManager.isJoystickActive;
+    if (isActive) {
+      if (!this.prevJoyActive) {
+        this.joystickEl.style.display = 'block';
+        this.prevJoyActive = true;
       }
-    } else {
+
+      const ox = this.inputManager.joystickOrigin.x;
+      const oy = this.inputManager.joystickOrigin.y;
+      if (ox !== this.prevJoyOriginX || oy !== this.prevJoyOriginY) {
+        this.joystickEl.style.left = `${ox}px`;
+        this.joystickEl.style.top = `${oy}px`;
+        this.prevJoyOriginX = ox;
+        this.prevJoyOriginY = oy;
+      }
+
+      const dx = Math.round(this.inputManager.joystickThumb.x - ox);
+      const dy = Math.round(this.inputManager.joystickThumb.y - oy);
+      if (dx !== this.prevKnobDx || dy !== this.prevKnobDy) {
+        this.joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        this.prevKnobDx = dx;
+        this.prevKnobDy = dy;
+      }
+
+      const isSprinting = this.inputManager.state.isSprinting;
+      if (isSprinting !== this.prevSprinting) {
+        this.joystickEl.classList.toggle('sprinting', isSprinting);
+        this.prevSprinting = isSprinting;
+      }
+    } else if (this.prevJoyActive) {
       this.joystickEl.style.display = 'none';
+      this.prevJoyActive = false;
     }
   }
 }
