@@ -43,7 +43,7 @@ export class CollisionSystem {
 
         if (distSq < radiusSum * radiusSum) {
           // Bullet Hit!
-          bullet.deactivate();
+          bulletPool.deactivateBullet(bullet);
           CollisionSystem._hitDir.copy(bullet.velocity).normalize();
 
           particlePool.burst(bullet.position.x, 0.4, bullet.position.z, 0x00f0ff, 4, 6);
@@ -105,7 +105,7 @@ export class CollisionSystem {
       const distSq = dx * dx + dz * dz;
 
       if (distSq < 1.0) {
-        pickup.deactivate();
+        pickupPool.deactivateGem(pickup);
         particlePool.burst(pickup.position.x, 0.4, pickup.position.z, 0x00f0ff, 5, 5);
         sound.playPickup();
         onXpEarned(pickup.xpValue);

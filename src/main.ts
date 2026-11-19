@@ -4,6 +4,7 @@ import { Player } from './entities/Player';
 import { CameraSystem } from './systems/CameraSystem';
 import { TouchUI } from './ui/TouchUI';
 import { HUD } from './ui/HUD';
+import { DebugOverlay } from './ui/DebugOverlay';
 import { BulletPool } from './entities/Bullet';
 import { EnemyPool } from './entities/Enemy';
 import { PickupPool } from './entities/Pickup';
@@ -14,7 +15,7 @@ import { CollisionSystem } from './systems/CollisionSystem';
 import { sound } from './audio/SoundSynth';
 import { Haptics } from './audio/Haptics';
 
-// Initialize Three.js scene & renderer
+// Initialize Three.js scene & renderer with capped pixelRatio
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const uiLayer = document.getElementById('ui-layer') as HTMLElement;
 
@@ -33,7 +34,7 @@ scene.fog = new THREE.FogExp2(0x060812, 0.015);
 // Camera System
 const cameraSystem = new CameraSystem(window.innerWidth / window.innerHeight);
 
-// Lighting
+// Lighting: low-poly balanced illumination
 const hemiLight = new THREE.HemisphereLight(0x77aaff, 0x112233, 1.2);
 scene.add(hemiLight);
 
@@ -41,7 +42,7 @@ const dirLight = new THREE.DirectionalLight(0x00f0ff, 1.8);
 dirLight.position.set(20, 40, 20);
 scene.add(dirLight);
 
-// Arena: Grid Floor & Boundary Lines
+// Arena: Grid Floor & Boundary Perimeter
 const arenaSize = 54;
 const gridHelper = new THREE.GridHelper(arenaSize, 36, 0x00f0ff, 0x152238);
 gridHelper.position.y = 0.01;
@@ -71,19 +72,20 @@ const boundaryLineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth
 const boundaryLines = new THREE.Line(boundaryLineGeo, boundaryLineMat);
 scene.add(boundaryLines);
 
-// Entities & Object Pools
+// Entities & Instanced Object Pools (Zero per-frame allocations)
 const player = new Player();
 scene.add(player.mesh);
 
-const bulletPool = new BulletPool(scene, 100);
+const bulletPool = new BulletPool(scene, 120);
 const enemyPool = new EnemyPool(scene, 60);
-const pickupPool = new PickupPool(scene, 80);
-const particlePool = new ParticlePool(scene, 120);
+const pickupPool = new PickupPool(scene, 100);
+const particlePool = new ParticlePool(scene, 150);
 
 // Systems & UI
 const inputSystem = new InputSystem();
 const touchUI = new TouchUI(uiLayer, inputSystem);
 const hud = new HUD(uiLayer);
+const debugOverlay = new DebugOverlay(uiLayer);
 const waveSystem = new WaveSystem(enemyPool);
 const combatSystem = new CombatSystem();
 
@@ -138,7 +140,7 @@ window.addEventListener('resize', () => {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 });
 
-// Fixed Timestep Loop
+// Fixed Timestep Loop (60Hz)
 const fixedDelta = 1 / 60;
 let lastTime = performance.now();
 let accumulator = 0;
@@ -189,13 +191,8 @@ function gameLoop(currentTime: number) {
       // Update Combat System (auto-fire, aim assist)
       combatSystem.update(fixedDelta, player, inputSystem, bulletPool, enemyPool);
 
-      // Update Active Bullets
-      const bullets = bulletPool.pool;
-      for (let i = 0; i < bullets.length; i++) {
-        if (bullets[i].active) {
-          bullets[i].update(fixedDelta);
-        }
-      }
+      // Update Bullets
+      bulletPool.update(fixedDelta);
 
       // Update Active Enemies
       const enemies = enemyPool.pool;
@@ -205,13 +202,8 @@ function gameLoop(currentTime: number) {
         }
       }
 
-      // Update Active XP Pickups
-      const pickups = pickupPool.pool;
-      for (let i = 0; i < pickups.length; i++) {
-        if (pickups[i].active) {
-          pickups[i].update(fixedDelta, player.position, player.stats.pickupRadius, totalGameTime);
-        }
-      }
+      // Update Pickups
+      pickupPool.update(fixedDelta, player.position, player.stats.pickupRadius, totalGameTime);
 
       // Update Particles
       particlePool.update(fixedDelta);
@@ -247,6 +239,15 @@ function gameLoop(currentTime: number) {
 
   // Render Scene
   renderer.render(scene, cameraSystem.camera);
+
+  // Debug overlay update (?debug)
+  debugOverlay.tick(
+    renderer,
+    enemyPool.getActiveCount(),
+    bulletPool.getActiveCount(),
+    pickupPool.getActiveCount(),
+    particlePool.getActiveCount()
+  );
 }
 
 requestAnimationFrame(gameLoop);

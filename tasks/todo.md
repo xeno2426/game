@@ -28,14 +28,14 @@
 - [x] Phase 2 verification: `npm run build`, git commit & push
 
 ## Phase 3: Performance, Zero-Allocations & Architecture
-- [ ] Strict fixed-timestep loop (60 Hz) with delta accumulator and lag clamp
-- [ ] Object pooling for Bullets, Enemies, XP gems, and Particle effects (zero dynamic allocations during gameplay)
-- [ ] Low-poly primitives only with optimized materials (no external 3D model files)
-- [ ] Capped device pixel ratio (`Math.min(window.devicePixelRatio, 2)`)
-- [ ] FPS, draw-call, and entity count overlay enabled via `?debug` URL query parameter
-- [ ] Clean modular code architecture (`src/systems/`, `src/entities/`, `src/ui/`, `src/audio/`)
-- [ ] Tab visibility change handler (`visibilitychange`) to pause simulation and mute/suspend audio
-- [ ] Phase 3 verification: `npm run build`, profile memory/FPS, git commit & push
+- [x] Strict fixed-timestep loop (60 Hz) with delta accumulator and lag clamp
+- [x] Object pooling for Bullets, Enemies, XP gems, and Particle effects (zero dynamic allocations during gameplay)
+- [x] Low-poly primitives only with optimized materials (no external 3D model files)
+- [x] Capped device pixel ratio (`Math.min(window.devicePixelRatio, 2)`)
+- [x] FPS, draw-call, and entity count overlay enabled via `?debug` URL query parameter
+- [x] Clean modular code architecture (`src/systems/`, `src/entities/`, `src/ui/`, `src/audio/`)
+- [x] Tab visibility change handler (`visibilitychange`) to pause simulation and mute/suspend audio
+- [x] Phase 3 verification: `npm run build`, profile memory/FPS, git commit & push
 
 ## Phase 4: Installable Progressive Web App (PWA)
 - [ ] Integrate `vite-plugin-pwa`
