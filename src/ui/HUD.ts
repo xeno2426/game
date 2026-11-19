@@ -12,8 +12,10 @@ export class HUD {
   private tideTimeText: HTMLElement;
   private quickSlots: HTMLElement[] = [];
   private interactPrompt: HTMLElement;
+  private onSelectQuickSlot?: (index: number) => void;
 
-  constructor() {
+  constructor(onSelectQuickSlot?: (index: number) => void) {
+    this.onSelectQuickSlot = onSelectQuickSlot;
     this.container = document.createElement('div');
     this.container.className = 'hud-layer';
     this.container.innerHTML = `
@@ -89,6 +91,10 @@ export class HUD {
         <div class="slot-icon-container"></div>
         <div class="slot-count"></div>
       `;
+      slot.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        this.onSelectQuickSlot?.(i);
+      });
       qb.appendChild(slot);
       this.quickSlots.push(slot);
     }

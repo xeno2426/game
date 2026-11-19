@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export type ResourceType = 'tree' | 'scrap_pile' | 'plastic_barrel' | 'shipping_container' | 'sunken_electronics';
+export type ResourceType = 'tree' | 'scrap_pile' | 'plastic_barrel' | 'shipping_container' | 'sunken_electronics' | 'salvage_crate';
 
 export interface DropYield {
   itemId: string;

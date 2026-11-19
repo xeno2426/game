@@ -78,6 +78,8 @@ export const BUILDING_CONSTANTS = {
   ROTATION_STEP_RAD: Math.PI / 2, // 90 degree increments
   SOCKET_SNAP_RADIUS: 1.2,
   BUILD_REACH_DISTANCE: 8.0,
+  CAMPFIRE_WARMTH_RADIUS: 4.5,
+  ROOF_SHELTER_RADIUS: 3.5,
 } as const;
 
 export const RAFT_CONSTANTS = {

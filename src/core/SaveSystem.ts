@@ -2,6 +2,12 @@ import type { VitalsState } from '../logic/vitalsLogic';
 import type { InventorySlot } from '../logic/craftingLogic';
 import type { PlacedStructure } from '../logic/buildingLogic';
 
+export interface SavedCrate {
+  id: string;
+  position: [number, number, number];
+  yields: { itemId: string; count: number }[];
+}
+
 export interface SavedGameState {
   version: number;
   timestamp: number;
@@ -10,6 +16,55 @@ export interface SavedGameState {
   inventory: InventorySlot[];
   structures: PlacedStructure[];
   timeInTideCycle: number;
+  crates?: SavedCrate[];
+}
+
+export function validateAndMigrateSave(data: unknown): SavedGameState | null {
+  if (!data || typeof data !== 'object') return null;
+
+  const candidate = data as Partial<SavedGameState>;
+  if (candidate.version !== 1) {
+    // Tolerate older or unsupported future versions by returning null
+    return null;
+  }
+
+  if (
+    !Array.isArray(candidate.playerPos) ||
+    candidate.playerPos.length !== 3 ||
+    typeof candidate.playerPos[0] !== 'number' ||
+    typeof candidate.playerPos[1] !== 'number' ||
+    typeof candidate.playerPos[2] !== 'number'
+  ) {
+    return null;
+  }
+
+  if (!candidate.vitals || typeof candidate.vitals !== 'object') {
+    return null;
+  }
+  const v = candidate.vitals as Partial<VitalsState>;
+  if (
+    typeof v.health !== 'number' ||
+    typeof v.hydration !== 'number' ||
+    typeof v.hunger !== 'number' ||
+    typeof v.exposure !== 'number' ||
+    typeof v.stamina !== 'number'
+  ) {
+    return null;
+  }
+
+  if (!Array.isArray(candidate.inventory)) {
+    return null;
+  }
+
+  if (!Array.isArray(candidate.structures)) {
+    return null;
+  }
+
+  if (typeof candidate.timeInTideCycle !== 'number') {
+    return null;
+  }
+
+  return candidate as SavedGameState;
 }
 
 const DB_NAME = 'tidebound_db';
@@ -71,7 +126,8 @@ export class SaveSystem {
         const req = store.get(SAVE_KEY);
 
         req.onsuccess = () => {
-          resolve(req.result || null);
+          const raw = req.result || null;
+          resolve(validateAndMigrateSave(raw));
         };
         req.onerror = () => resolve(null);
       } catch {

@@ -7,15 +7,25 @@ export class InventoryUI {
   private overlay: HTMLElement;
   private craftingSystem: CraftingSystem;
   private vitalsSystem: VitalsSystem;
+  private getStation?: () => 'none' | 'workbench' | 'campfire';
   public isOpen = false;
 
-  constructor(craftingSystem: CraftingSystem, vitalsSystem: VitalsSystem) {
+  constructor(
+    craftingSystem: CraftingSystem,
+    vitalsSystem: VitalsSystem,
+    getStation?: () => 'none' | 'workbench' | 'campfire'
+  ) {
     this.craftingSystem = craftingSystem;
     this.vitalsSystem = vitalsSystem;
+    this.getStation = getStation;
 
     this.overlay = document.createElement('div');
-    this.overlay.className = 'modal-overlay';
+    this.overlay.className = 'modal-overlay hud-interactive';
     this.overlay.style.display = 'none';
+
+    this.overlay.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+    });
 
     this.overlay.innerHTML = `
       <div class="ui-panel modal-card">
@@ -103,7 +113,8 @@ export class InventoryUI {
     // Render craft list
     const craftList = this.overlay.querySelector('#craft-list') as HTMLElement;
     craftList.innerHTML = '';
-    const available = this.craftingSystem.getAvailableRecipes('none');
+    const station = this.getStation ? this.getStation() : 'none';
+    const available = this.craftingSystem.getAvailableRecipes(station);
 
     available.forEach((recipe) => {
       const row = document.createElement('div');
@@ -122,7 +133,7 @@ export class InventoryUI {
       const btn = row.querySelector('button');
       btn?.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
-        this.craftingSystem.craft(recipe.id, 'none');
+        this.craftingSystem.craft(recipe.id, station);
         this.render();
       });
 

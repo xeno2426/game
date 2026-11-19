@@ -67,9 +67,16 @@ export class Player {
     cameraYaw: number,
     terrain: Terrain,
     waterLevel: number,
-    stamina: number
-  ): { staminaCost: number; hasAttacked: boolean } {
+    stamina: number,
+    isBoarded = false,
+    boardedDeckHeight?: number,
+    buildingSystem?: {
+      getGroundHeight: (terrainH: number, x: number, y: number, z: number) => number;
+      resolveHorizontalCollision: (pos: { x: number; y: number; z: number }, radius: number) => boolean;
+    }
+  ): { staminaCost: number; dodgeCost: number; hasAttacked: boolean } {
     let staminaCost = 0;
+    let dodgeCost = 0;
     let hasAttacked = false;
 
     // Attack cooldown
@@ -82,10 +89,24 @@ export class Player {
       hasAttacked = true;
     }
 
+    if (isBoarded) {
+      this.isSwimming = false;
+      this.isGrounded = true;
+      this.velocity.set(0, 0, 0);
+      if (boardedDeckHeight !== undefined) {
+        this.position.y = boardedDeckHeight;
+      }
+      this.rig.root.position.copy(this.position);
+      this.rig.root.rotation.y = this.rotationY;
+      this.updateAnimation(dt, 0);
+      return { staminaCost: 0, dodgeCost: 0, hasAttacked };
+    }
+
     // Dodge action
     if (input.isJumpPressed && !this.isDodging && this.isGrounded && stamina >= VITALS_CONSTANTS.STAMINA_DODGE_COST) {
       this.isDodging = true;
       this.dodgeTimer = MOVEMENT_CONSTANTS.DODGE_DURATION;
+      dodgeCost = VITALS_CONSTANTS.STAMINA_DODGE_COST;
       staminaCost += VITALS_CONSTANTS.STAMINA_DODGE_COST;
     }
 
@@ -140,7 +161,17 @@ export class Player {
       this.rotationY += diff * Math.min(1.0, dt * 12.0);
     }
 
-    // Vertical physics & heightfield collision
+    if (buildingSystem) {
+      buildingSystem.resolveHorizontalCollision(this.position, MOVEMENT_CONSTANTS.PLAYER_RADIUS);
+    }
+
+    // Vertical physics & heightfield/structure collision
+    const groundH = buildingSystem
+      ? buildingSystem.getGroundHeight(terrainH, this.position.x, this.position.y, this.position.z)
+      : terrainH;
+
+    this.isSwimming = this.position.y < waterLevel - 0.4 && groundH < waterLevel;
+
     if (this.isSwimming) {
       // Bobbing on water surface
       const targetY = waterLevel - 0.8;
@@ -152,9 +183,9 @@ export class Player {
       this.velocity.y -= MOVEMENT_CONSTANTS.GRAVITY * dt;
       this.position.y += this.velocity.y * dt;
 
-      // Terrain ground clamping
-      if (this.position.y <= terrainH) {
-        this.position.y = terrainH;
+      // Ground clamping
+      if (this.position.y <= groundH) {
+        this.position.y = groundH;
         this.velocity.y = 0;
         this.isGrounded = true;
       } else {
@@ -168,7 +199,7 @@ export class Player {
     // Procedural animation update
     this.updateAnimation(dt, targetSpeed);
 
-    return { staminaCost, hasAttacked };
+    return { staminaCost, dodgeCost, hasAttacked };
   }
 
   private updateAnimation(dt: number, speed: number): void {

@@ -38,6 +38,20 @@ export class BuildMenuUI {
       this.container.appendChild(itemEl);
     });
 
+    // Central cancel item
+    const cancelEl = document.createElement('div');
+    cancelEl.className = 'radial-item radial-cancel';
+    cancelEl.style.left = `${140 - 26}px`;
+    cancelEl.style.top = `${140 - 26}px`;
+    cancelEl.title = 'Cancel Build Mode';
+    cancelEl.innerHTML = getSvgIcon('close', 24);
+    cancelEl.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      this.buildingSystem.selectBlueprint(null);
+      this.close();
+    });
+    this.container.appendChild(cancelEl);
+
     document.getElementById('app')?.appendChild(this.container);
   }
 

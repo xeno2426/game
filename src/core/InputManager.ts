@@ -16,6 +16,7 @@ export interface InputState {
   isFirstPersonTogglePressed: boolean;
   isBuildMenuTogglePressed: boolean;
   isInventoryTogglePressed: boolean;
+  isEscapePressed: boolean;
 
   // Active quickslot (0 to 4)
   activeQuickSlot: number;
@@ -35,6 +36,7 @@ export class InputManager {
     isFirstPersonTogglePressed: false,
     isBuildMenuTogglePressed: false,
     isInventoryTogglePressed: false,
+    isEscapePressed: false,
     activeQuickSlot: 0,
   };
 
@@ -160,6 +162,9 @@ export class InputManager {
         e.preventDefault();
         this.state.isInventoryTogglePressed = true;
       }
+      if (e.code === 'Escape') {
+        this.state.isEscapePressed = true;
+      }
 
       if (e.code === 'Digit1') this.state.activeQuickSlot = 0;
       if (e.code === 'Digit2') this.state.activeQuickSlot = 1;
@@ -177,6 +182,7 @@ export class InputManager {
       if (e.code === 'KeyR') this.state.isRotatePressed = false;
       if (e.code === 'KeyB') this.state.isBuildMenuTogglePressed = false;
       if (e.code === 'KeyI' || e.code === 'Tab') this.state.isInventoryTogglePressed = false;
+      if (e.code === 'Escape') this.state.isEscapePressed = false;
     });
 
     window.addEventListener('mousedown', (e) => {

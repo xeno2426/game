@@ -3,7 +3,7 @@ import { BLUEPRINTS } from '../data/blueprints';
 import { BUILDING_CONSTANTS } from '../data/constants';
 import { AssetRegistry } from '../entities/AssetRegistry';
 import { PALETTE_COLORS } from '../data/palette';
-import { findBestSnapSocket, type PlacedStructure } from '../logic/buildingLogic';
+import { findBestSnapSocket, computeStructureAABBs, computeGroundHeight, resolveHorizontalCollision, type PlacedStructure, type StructureAABB } from '../logic/buildingLogic';
 import type { CraftingSystem } from './CraftingSystem';
 import type { Terrain } from '../world/Terrain';
 
@@ -13,6 +13,7 @@ export class BuildingSystem {
   private terrain: Terrain;
 
   public placedStructures: PlacedStructure[] = [];
+  public staticAABBs: StructureAABB[] = [];
   public currentBlueprintId: string | null = null;
   public currentRotationY = 0; // 0, PI/2, PI, 3*PI/2
 
@@ -145,8 +146,70 @@ export class BuildingSystem {
       rotationY: this.currentRotationY,
     };
     this.placedStructures.push(placed);
+    const aabbs = computeStructureAABBs(placed);
+    this.staticAABBs.push(...aabbs);
 
     return true;
+  }
+
+  public restoreStructure(struct: PlacedStructure): void {
+    const structMesh = this.createStructureMesh(struct.blueprintId);
+    structMesh.position.set(struct.position[0], struct.position[1], struct.position[2]);
+    structMesh.rotation.y = struct.rotationY;
+    this.scene.add(structMesh);
+    this.placedStructures.push(struct);
+    const aabbs = computeStructureAABBs(struct);
+    this.staticAABBs.push(...aabbs);
+  }
+
+  public resolveHorizontalCollision(pos: { x: number; y: number; z: number }, radius: number): boolean {
+    return resolveHorizontalCollision(pos, radius, this.staticAABBs);
+  }
+
+  public getGroundHeight(terrainH: number, x: number, y: number, z: number): number {
+    return computeGroundHeight(terrainH, this.placedStructures, x, y, z);
+  }
+
+  public isNearCampfire(pos: { x: number; y: number; z: number }): boolean {
+    const rSq = BUILDING_CONSTANTS.CAMPFIRE_WARMTH_RADIUS * BUILDING_CONSTANTS.CAMPFIRE_WARMTH_RADIUS;
+    for (const s of this.placedStructures) {
+      if (s.blueprintId === 'campfire') {
+        const dx = s.position[0] - pos.x;
+        const dy = s.position[1] - pos.y;
+        const dz = s.position[2] - pos.z;
+        if (dx * dx + dy * dy + dz * dz <= rSq) return true;
+      }
+    }
+    return false;
+  }
+
+  public isUnderRoof(pos: { x: number; y: number; z: number }): boolean {
+    const rSq = BUILDING_CONSTANTS.ROOF_SHELTER_RADIUS * BUILDING_CONSTANTS.ROOF_SHELTER_RADIUS;
+    for (const s of this.placedStructures) {
+      if (s.blueprintId === 'roof') {
+        const dx = s.position[0] - pos.x;
+        const dz = s.position[2] - pos.z;
+        if (dx * dx + dz * dz <= rSq) {
+          if (pos.y <= s.position[1] + 1.0 && pos.y >= s.position[1] - 4.0) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  public isNearWorkbench(pos: { x: number; y: number; z: number }): boolean {
+    const rSq = 3.5 * 3.5;
+    for (const s of this.placedStructures) {
+      if (s.blueprintId === 'workbench') {
+        const dx = s.position[0] - pos.x;
+        const dy = s.position[1] - pos.y;
+        const dz = s.position[2] - pos.z;
+        if (dx * dx + dy * dy + dz * dz <= rSq) return true;
+      }
+    }
+    return false;
   }
 
   private createStructureMesh(blueprintId: string): THREE.Object3D {

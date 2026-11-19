@@ -11,7 +11,7 @@ import { Weather } from './world/Weather';
 import { Player } from './entities/Player';
 import { Raft } from './entities/Raft';
 import { Enemy } from './entities/Enemy';
-import { ResourceNode } from './entities/ResourceNode';
+import { ResourceNode, type DropYield } from './entities/ResourceNode';
 import { AssetRegistry } from './entities/AssetRegistry';
 import { VitalsSystem } from './systems/VitalsSystem';
 import { InteractionSystem } from './systems/InteractionSystem';
@@ -81,7 +81,11 @@ async function bootstrap() {
   const cameraController = new CameraController(window.innerWidth / window.innerHeight);
   const inputManager = new InputManager();
 
-  const hud = new HUD();
+  const hud = new HUD((slotIndex) => {
+    inputManager.state.activeQuickSlot = slotIndex;
+    craftingSystem.setActiveQuickSlot(slotIndex);
+    buildingSystem.selectBlueprint(null);
+  });
   const vitalsSystem = new VitalsSystem(hud);
   const interactionSystem = new InteractionSystem(hud);
   const craftingSystem = new CraftingSystem(hud);
@@ -89,7 +93,11 @@ async function bootstrap() {
   const combatSystem = new CombatSystem();
 
   const touchControls = new TouchControls(inputManager);
-  const inventoryUI = new InventoryUI(craftingSystem, vitalsSystem);
+  const inventoryUI = new InventoryUI(craftingSystem, vitalsSystem, () => {
+    if (buildingSystem.isNearCampfire(player.position)) return 'campfire';
+    if (buildingSystem.isNearWorkbench(player.position)) return 'workbench';
+    return 'none';
+  });
   const buildMenuUI = new BuildMenuUI(buildingSystem);
 
   // Crosshair element for aiming
@@ -216,6 +224,50 @@ async function bootstrap() {
   // 6. Modular Raft
   const raft = new Raft(new THREE.Vector3(25, 0, -18), scene);
 
+  // Active salvage crates collection
+  const activeCrates: ResourceNode[] = [];
+
+  // Restore saved game state
+  const saved = await SaveSystem.load();
+  if (saved) {
+    if (Array.isArray(saved.playerPos) && saved.playerPos.length === 3) {
+      player.position.set(saved.playerPos[0], saved.playerPos[1], saved.playerPos[2]);
+    }
+    if (saved.vitals) {
+      Object.assign(vitalsSystem.vitals, saved.vitals);
+      vitalsSystem.updateHUD();
+    }
+    if (Array.isArray(saved.inventory) && saved.inventory.length === 12) {
+      craftingSystem.inventory = saved.inventory;
+      craftingSystem.updateHUD();
+    }
+    if (typeof saved.timeInTideCycle === 'number') {
+      tideSystem.timeInCycle = saved.timeInTideCycle;
+    }
+    if (Array.isArray(saved.structures)) {
+      for (const s of saved.structures) {
+        buildingSystem.restoreStructure(s);
+      }
+    }
+    if (Array.isArray(saved.crates)) {
+      for (const c of saved.crates) {
+        const crateMesh = assetReg.createLootPickup('salvage_crate');
+        crateMesh.position.set(c.position[0], c.position[1], c.position[2]);
+        scene.add(crateMesh);
+        const crateNode = new ResourceNode(
+          c.id,
+          'salvage_crate',
+          crateMesh,
+          crateMesh.position.clone(),
+          1,
+          c.yields
+        );
+        interactionSystem.registerNode(crateNode);
+        activeCrates.push(crateNode);
+      }
+    }
+  }
+
   // Unlock Audio on first pointerdown
   window.addEventListener(
     'pointerdown',
@@ -262,6 +314,12 @@ async function bootstrap() {
         inputManager.state.isInventoryTogglePressed = false;
       }
 
+      // Escape key cancels blueprint
+      if (inputManager.state.isEscapePressed) {
+        buildingSystem.selectBlueprint(null);
+        inputManager.state.isEscapePressed = false;
+      }
+
       // Quick slot selection
       craftingSystem.setActiveQuickSlot(inputManager.state.activeQuickSlot);
       player.equipItem(craftingSystem.getActiveItem());
@@ -289,30 +347,63 @@ async function bootstrap() {
       // Water update
       water.update(accumulatedTime, tideState.waterLevel);
 
+      // Raft update & boarding
+      const distToRaft = player.position.distanceTo(raft.position);
+      const isNearRaft = distToRaft < 2.5;
+
+      if (raft.isPlayerBoarded) {
+        hud.showInteractPrompt('DISEMBARK');
+        if (inputManager.state.isInteractPressed) {
+          raft.isPlayerBoarded = false;
+          inputManager.state.isInteractPressed = false;
+          player.position.addScaledVector(raft.deltaDisplacement, 2);
+        }
+      } else if (isNearRaft && interactionSystem.nearestNode === null) {
+        hud.showInteractPrompt('BOARD RAFT');
+        if (inputManager.state.isInteractPressed) {
+          raft.isPlayerBoarded = true;
+          inputManager.state.isInteractPressed = false;
+        }
+      }
+
+      raft.update(dt, accumulatedTime, tideState.waterLevel, {
+        moveX: inputManager.state.moveX,
+        moveZ: inputManager.state.moveZ,
+      });
+
+      if (raft.isPlayerBoarded) {
+        player.position.x += raft.deltaDisplacement.x;
+        player.position.z += raft.deltaDisplacement.z;
+      }
+
       // Player update
       const camYaw = cameraController.getYaw();
-      const { hasAttacked } = player.update(
+      const { dodgeCost, hasAttacked } = player.update(
         dt,
         inputManager.state,
         camYaw,
         terrain,
         tideState.waterLevel,
-        vitalsSystem.vitals.stamina
+        vitalsSystem.vitals.stamina,
+        raft.isPlayerBoarded,
+        raft.position.y + raft.deckHeight,
+        buildingSystem
       );
 
+      // Deduct only dodge part of staminaCost from stamina
+      if (dodgeCost > 0) {
+        vitalsSystem.vitals.stamina = Math.max(0, vitalsSystem.vitals.stamina - dodgeCost);
+      }
+
       // Vitals update
+      const isNearCampfire = buildingSystem.isNearCampfire(player.position);
+      const isUnderRoof = buildingSystem.isUnderRoof(player.position);
       vitalsSystem.update(dt, {
-        isSprinting: inputManager.state.isSprinting,
+        isSprinting: inputManager.state.isSprinting && !raft.isPlayerBoarded,
         isSwimming: player.isSwimming,
         isInStorm: tideState.isHighTide,
-      });
-
-      // Raft update
-      const distToRaft = player.position.distanceTo(raft.position);
-      raft.isPlayerBoarded = distToRaft < 2.0;
-      raft.update(dt, accumulatedTime, tideState.waterLevel, {
-        moveX: inputManager.state.moveX,
-        moveZ: inputManager.state.moveZ,
+        isNearCampfire,
+        isUnderRoof,
       });
 
       // Weather update
@@ -365,22 +456,45 @@ async function bootstrap() {
 
       // Death check: drop non-equipped inventory in floating salvage crate
       if (vitalsSystem.vitals.isDead) {
-        const crateMesh = assetReg.createLootPickup('salvage_crate');
-        crateMesh.position.set(player.position.x, Math.max(player.position.y, tideState.waterLevel + 0.2), player.position.z);
-        scene.add(crateMesh);
-
-        // Clear non-equipped items
+        const droppedYields: DropYield[] = [];
         craftingSystem.inventory.forEach((slot, idx) => {
-          if (idx !== craftingSystem.activeQuickSlot) {
+          if (idx !== craftingSystem.activeQuickSlot && slot.itemId && slot.count > 0) {
+            droppedYields.push({ itemId: slot.itemId, count: slot.count });
             slot.itemId = null;
             slot.count = 0;
           }
         });
         craftingSystem.updateHUD();
 
+        if (droppedYields.length > 0) {
+          const crateMesh = assetReg.createLootPickup('salvage_crate');
+          crateMesh.position.set(
+            player.position.x,
+            Math.max(player.position.y, tideState.waterLevel + 0.2),
+            player.position.z
+          );
+          scene.add(crateMesh);
+
+          const crateNode = new ResourceNode(
+            `salvage_crate_${Date.now()}`,
+            'salvage_crate',
+            crateMesh,
+            crateMesh.position.clone(),
+            1,
+            droppedYields
+          );
+          interactionSystem.registerNode(crateNode);
+          activeCrates.push(crateNode);
+        }
+
         // Respawn at starter island camp
         player.position.set(0, 8, 12);
+        player.velocity.set(0, 0, 0);
         vitalsSystem.vitals.health = 100;
+        vitalsSystem.vitals.hydration = 100;
+        vitalsSystem.vitals.hunger = 100;
+        vitalsSystem.vitals.exposure = 0;
+        vitalsSystem.vitals.stamina = 100;
         vitalsSystem.vitals.isDead = false;
         vitalsSystem.updateHUD();
       }
@@ -388,6 +502,14 @@ async function bootstrap() {
       // Autosave every 20s
       if (saveTimer >= 20.0) {
         saveTimer = 0;
+        const savedCrates = activeCrates
+          .filter((c) => !c.isDepleted)
+          .map((c) => ({
+            id: c.id,
+            position: [c.position.x, c.position.y, c.position.z] as [number, number, number],
+            yields: c.yields,
+          }));
+
         SaveSystem.save({
           version: 1,
           timestamp: Date.now(),
@@ -396,6 +518,7 @@ async function bootstrap() {
           inventory: craftingSystem.inventory,
           structures: buildingSystem.placedStructures,
           timeInTideCycle: tideSystem.timeInCycle,
+          crates: savedCrates,
         });
       }
     },

@@ -7,8 +7,11 @@ export class Raft {
   public object: THREE.Group;
   public position: THREE.Vector3;
   public velocity: THREE.Vector3 = new THREE.Vector3();
+  public deltaDisplacement = new THREE.Vector3();
+  public deckHeight = 0.3;
   public rotationY = 0;
   public isPlayerBoarded = false;
+  private barrelHeights = new Float32Array(4);
 
   private barrelOffsets: [number, number][] = [
     [-1.0, -1.0],
@@ -25,9 +28,11 @@ export class Raft {
   }
 
   public update(dt: number, timeSec: number, waterLevel: number, steerInput: { moveX: number; moveZ: number }): void {
+    const prevX = this.position.x;
+    const prevZ = this.position.z;
+
     // Sample water surface height at 4 barrels
     let avgSurfaceH = 0;
-    const h: number[] = [];
 
     for (let i = 0; i < 4; i++) {
       const [ox, oz] = this.barrelOffsets[i];
@@ -38,7 +43,7 @@ export class Raft {
       const bz = this.position.z + (-ox * sin + oz * cos);
 
       const waveH = waterLevel + getWaveHeight(bx, bz, timeSec);
-      h.push(waveH);
+      this.barrelHeights[i] = waveH;
       avgSurfaceH += waveH;
     }
     avgSurfaceH /= 4.0;
@@ -47,8 +52,8 @@ export class Raft {
     this.position.y += (avgSurfaceH - this.position.y) * Math.min(1.0, dt * 6.0);
 
     // Roll and Pitch from barrel height differences
-    const roll = (h[1] - h[0] + h[3] - h[2]) * 0.12;
-    const pitch = (h[2] - h[0] + h[3] - h[1]) * 0.12;
+    const roll = (this.barrelHeights[1] - this.barrelHeights[0] + this.barrelHeights[3] - this.barrelHeights[2]) * 0.12;
+    const pitch = (this.barrelHeights[2] - this.barrelHeights[0] + this.barrelHeights[3] - this.barrelHeights[1]) * 0.12;
     this.object.rotation.z = roll;
     this.object.rotation.x = pitch;
 
@@ -69,6 +74,7 @@ export class Raft {
     this.velocity.multiplyScalar(RAFT_CONSTANTS.DAMPING);
     this.position.x += this.velocity.x * dt;
     this.position.z += this.velocity.z * dt;
+    this.deltaDisplacement.set(this.position.x - prevX, 0, this.position.z - prevZ);
 
     this.object.position.copy(this.position);
     this.object.rotation.y = this.rotationY;

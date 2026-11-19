@@ -66,15 +66,15 @@
 - [x] Group A verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
 
 ### Group B: High Priority (Broken Features & Mobile UX)
-- [ ] H1: SaveSystem.load() never called on startup (restore player pos, vitals, inventory, tide, structures; test round trip)
-- [ ] H2: Quick-bar slots cannot be tapped (pointerdown with stopPropagation)
-- [ ] H3: Build mode cannot be exited (radial cancel item, clear on quick-slot switch / Escape)
-- [ ] H4: Raft does not carry player (explicit board/disembark, apply delta displacement & deck height, skip walk/swim)
-- [ ] H5: Death: salvage crate holds items & interactive/persisted; respawn resets all vitals & stamina, clears velocity
-- [ ] H6: Deduct dodge staminaCost only; wire campfire/roof radii from constants into vitalsSystem.update
-- [ ] H7: Placed structures collision: static AABBs in BuildingSystem, resolve wall collision, groundHeight calculation in src/logic/buildingLogic.ts with tests
-- [ ] H8: InventoryUI: .hud-interactive and stopPropagation on modal overlay; pass nearest station to getAvailableRecipes/craft
-- [ ] Group B verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
+- [x] H1: SaveSystem.load() never called on startup (restore player pos, vitals, inventory, tide, structures; test round trip)
+- [x] H2: Quick-bar slots cannot be tapped (pointerdown with stopPropagation)
+- [x] H3: Build mode cannot be exited (radial cancel item, clear on quick-slot switch / Escape)
+- [x] H4: Raft does not carry player (explicit board/disembark, apply delta displacement & deck height, skip walk/swim)
+- [x] H5: Death: salvage crate holds items & interactive/persisted; respawn resets all vitals & stamina, clears velocity
+- [x] H6: Deduct dodge staminaCost only; wire campfire/roof radii from constants into vitalsSystem.update
+- [x] H7: Placed structures collision: static AABBs in BuildingSystem, resolve wall collision, groundHeight calculation in src/logic/buildingLogic.ts with tests
+- [x] H8: InventoryUI: .hud-interactive and stopPropagation on modal overlay; pass nearest station to getAvailableRecipes/craft
+- [x] Group B verification: npx tsc --noEmit, npm run build, npm test, lessons.md, commit and push
 
 ### Group C: Medium (Logic, Camera & Performance)
 - [ ] M1: CameraController: remove world-space X from thirdPersonOffset, rotate shoulder by yaw, first-person look outward along (-sinYaw*cosPitch, -sinPitch, -cosYaw*cosPitch)

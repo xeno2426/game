@@ -41,6 +41,7 @@ export class InteractionSystem {
       else if (closest.type === 'plastic_barrel') prompt = 'SALVAGE BARREL';
       else if (closest.type === 'shipping_container') prompt = 'LOOT CONTAINER';
       else if (closest.type === 'sunken_electronics') prompt = 'RECOVER ELECTRONICS';
+      else if (closest.type === 'salvage_crate') prompt = 'LOOT CRATE';
 
       this.hud.showInteractPrompt(prompt);
     } else {
